@@ -20,37 +20,328 @@ Traditional RAG systems have critical limitations:
 ### Our Solution
 
 A **streaming, versioned, temporal RAG system** with:
-- ✅ **Automatic Change Detection** (CDC - Change Data Capture)
-- ✅ **Dual-Tier Storage** (hot for current, cold for history)
-- ✅ **Temporal Queries** (current + historical)
-- ✅ **Complete Audit Trail** (who, what, when for every change)
+- **Automatic Change Detection** (CDC - Change Data Capture)
+- **Dual-Tier Storage** (hot for current, cold for history)
+- **Temporal Queries** (current + historical)
+- **Complete Audit Trail** (who, what, when for every change)
 
 ---
 
 ## Architecture
 
+### System Overview
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    LIVEVECTORLAKE                       │
-│          Streaming Temporal RAG System                  │
-└─────────────────────────────────────────────────────────┘
-                          │
-      ┌───────────────────┼───────────────────┐
-      │                   │                   │
-      ▼                   ▼                   ▼
-┌──────────┐      ┌──────────┐      ┌──────────┐
-│ INGEST   │      │ STORAGE  │      │  QUERY   │
-│  LAYER   │      │  LAYER   │      │  LAYER   │
-└──────────┘      └──────────┘      └──────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            LIVEVECTORLAKE SYSTEM                                │
+│                    Streaming Temporal RAG with CDC & Versioning                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 1: DATA INGESTION & CDC                                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│                    ┌─────────────────────────────────┐                         │
+│                    │   Streaming Data Sources        │                         │
+│                    │   (News, Wikipedia, APIs, Files)│                         │
+│                    └──────────┬──────────────────────┘                         │
+│                               ▼                                                 │
+│                    ┌─────────────────────┐                                     │
+│                    │  Source Connectors  │                                     │
+│                    │  - Text Loader      │                                     │
+│                    │  - Wikipedia API    │                                     │
+│                    │  - Stack Overflow   │                                     │
+│                    └──────────┬──────────┘                                     │
+│                               ▼                                                 │
+│                    ┌─────────────────────┐                                     │
+│                    │   CDC Chunker       │                                     │
+│                    │  (chunker.py)       │                                     │
+│                    │  - Split into chunks│                                     │
+│                    │  - SHA-256 hashing  │                                     │
+│                    │  - Change detection │                                     │
+│                    └──────────┬──────────┘                                     │
+│                               ▼                                                 │
+│                    ┌─────────────────────┐                                     │
+│                    │   Hash Store        │                                     │
+│                    │  (hash_store.py)    │                                     │
+│                    │  - In-memory cache  │                                     │
+│                    │  - JSON persistence │                                     │
+│                    │  - Fast comparison  │                                     │
+│                    └──────────┬──────────┘                                     │
+│                               │                                                 │
+│         ┌─────────────────────┼─────────────────────┐                          │
+│         ▼                     ▼                     ▼                          │
+│    [NEW CHUNK]           [MODIFIED]            [UNCHANGED]                     │
+│         │                     │                     │                          │
+└─────────┼─────────────────────┼─────────────────────┼──────────────────────────┘
+          │                     │                     │
+          │                     │                     └──────> Skip Processing
+          │                     │
+          └─────────────────────┘
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 2: EMBEDDING & VECTORIZATION                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│                    ┌─────────────────────────────────┐                         │
+│                    │  SentenceTransformers           │                         │
+│                    │  Model: all-MiniLM-L6-v2        │                         │
+│                    │  - Dimension: 384               │                         │
+│                    │  - Speed: ~12 chunks/sec (CPU)  │                         │
+│                    │  - Size: ~80MB                  │                         │
+│                    └────────────┬────────────────────┘                         │
+│                                 │                                               │
+│                                 ▼                                               │
+│                    ┌─────────────────────────────────┐                         │
+│                    │  Vector Embeddings (384-dim)    │                         │
+│                    │  + Metadata (doc_id, chunk_id,  │                         │
+│                    │    timestamp, status, version)  │                         │
+│                    └────────────┬────────────────────┘                         │
+│                                 │                                               │
+└─────────────────────────────────┼───────────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 3: DUAL-TIER STORAGE (HOT + COLD)                                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌────────────────────────────────┐    ┌────────────────────────────────┐     │
+│  │     HOT TIER (Milvus)          │    │    COLD TIER (Delta Lake)      │     │
+│  │     (milvus_db.py)             │    │    (delta_store.py)            │     │
+│  ├────────────────────────────────┤    ├────────────────────────────────┤     │
+│  │                                │    │                                │     │
+│  │  Purpose:                      │    │  Purpose:                      │     │
+│  │  - Current/Active chunks only  │    │  - Complete version history    │     │
+│  │  - Fast vector similarity      │    │  - All states (active,         │     │
+│  │                                │    │    superseded, deleted)        │     │
+│  │  Performance:                  │    │                                │     │
+│  │  - Query: <100ms               │    │  Performance:                  │     │
+│  │  - In-memory index             │    │  - Query: <2s                  │     │
+│  │                                │    │  - Compressed Parquet          │     │
+│  │  Storage:                      │    │                                │     │
+│  │  - Vectors (384-dim)           │    │  Storage:                      │     │
+│  │  - Minimal metadata:           │    │  - Vectors (384-dim)           │     │
+│  │    * doc_id                    │    │  - Full metadata:              │     │
+│  │    * chunk_id                  │    │    * doc_id                    │     │
+│  │    * chunk_hash                │    │    * chunk_id                  │     │
+│  │    * timestamp                 │    │    * chunk_hash                │     │
+│  │    * status (active)           │    │    * chunk_text                │     │
+│  │                                │    │    * timestamp                 │     │
+│  │  Operations:                   │    │    * valid_from                │     │
+│  │  - INSERT (new chunks)         │    │    * valid_to                  │     │
+│  │  - DELETE (superseded chunks)  │    │    * status (active/           │     │
+│  │  - SEARCH (vector similarity)  │    │      superseded/deleted)       │     │
+│  │                                │    │    * version                   │     │
+│  │  Collection Schema:            │    │                                │     │
+│  │  ┌──────────────────────────┐ │    │  Operations:                   │     │
+│  │  │ Field      │ Type         │ │    │  - APPEND (all changes)        │     │
+│  │  ├──────────────────────────┤ │    │  - UPDATE (mark superseded)    │     │
+│  │  │ id         │ INT64 (PK)   │ │    │  - TIME-TRAVEL queries         │     │
+│  │  │ doc_id     │ VARCHAR      │ │    │  - ACID transactions           │     │
+│  │  │ chunk_id   │ VARCHAR      │ │    │                                │     │
+│  │  │ chunk_hash │ VARCHAR      │ │    │  Delta Lake Features:          │     │
+│  │  │ embedding  │ FLOAT_VECTOR │ │    │  - Schema evolution            │     │
+│  │  │ timestamp  │ INT64        │ │    │  - Time travel (AS OF)         │     │
+│  │  │ status     │ VARCHAR      │ │    │  - ACID guarantees             │     │
+│  │  └──────────────────────────┘ │    │  - Parquet compression         │     │
+│  │                                │    │  - Polars integration          │     │
+│  └────────────────────────────────┘    └────────────────────────────────┘     │
+│                                                                                 │
+│  WRITE FLOW:                                                                    │
+│  1. New chunk      → INSERT to Milvus (hot)  + APPEND to Delta Lake (cold)    │
+│  2. Modified chunk → DELETE old from Milvus  + UPDATE old in Delta Lake        │
+│                      INSERT new to Milvus    + APPEND new to Delta Lake        │
+│  3. Deleted chunk  → DELETE from Milvus      + UPDATE status in Delta Lake     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 4: QUERY ENGINE                                                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│                    ┌─────────────────────────────────┐                         │
+│                    │   Query Parser                  │                         │
+│                    │   - Detect temporal intent      │                         │
+│                    │   - Extract time constraints    │                         │
+│                    └────────────┬────────────────────┘                         │
+│                                 │                                               │
+│                                 ▼                                               │
+│                    ┌─────────────────────────────────┐                         │
+│                    │   Query Router                  │                         │
+│                    │   - Route to hot/cold/hybrid    │                         │
+│                    └────────────┬────────────────────┘                         │
+│                                 │                                               │
+│         ┌───────────────────────┼───────────────────────┐                     │
+│         ▼                       ▼                       ▼                     │
+│  ┌─────────────┐        ┌─────────────┐        ┌─────────────┐              │
+│  │ CURRENT     │        │ HISTORICAL  │        │ COMPARATIVE │              │
+│  │ Query       │        │ Query       │        │ Query       │              │
+│  │             │        │             │        │             │              │
+│  │ → Milvus    │        │ → Delta Lake│        │ → Both tiers│              │
+│  │ → <100ms    │        │ → <2s       │        │ → Timeline  │              │
+│  │ → Active    │        │ → AS OF     │        │ → Diff view │              │
+│  │   chunks    │        │   timestamp │        │             │              │
+│  └─────────────┘        └─────────────┘        └─────────────┘              │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 5: INTERFACE                                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌────────────────────────────────┐    ┌────────────────────────────────┐     │
+│  │     CLI (cli.py)               │    │    Web UI                      │     │
+│  ├────────────────────────────────┤    ├────────────────────────────────┤     │
+│  │                                │    │                                │     │
+│  │  Commands:                     │    │  Features:                     │     │
+│  │  - ingest <path> [--reset]     │    │  - Document upload             │     │
+│  │  - query <text> [--as-of]      │    │  - Query interface             │     │
+│  │  - audit <doc_id>              │    │  - CDC visualization           │     │
+│  │                                │    │  - Version timeline            │     │
+│  │  Output:                       │    │  - Diff highlighting           │     │
+│  │  - CDC summary                 │    │  - Source attribution          │     │
+│  │  - Hash store stats            │    │                                │     │
+│  │  - Performance metrics         │    │  Technology: Streamlit         │     │
+│  │                                │    │                                │     │
+│  └────────────────────────────────┘    └────────────────────────────────┘     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: Ingestion Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  INGESTION PIPELINE (cdc_ingest_simple.py)                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  Document File
+       │
+       ▼
+  ┌─────────┐
+  │  Load   │  text_loader.py (load text files)
+  └────┬────┘
+       │
+       ▼
+  ┌─────────┐
+  │  Chunk  │  chunker.py (split, hash with SHA-256)
+  └────┬────┘
+       │
+       ▼
+  ┌──────────────────┐
+  │  CDC Detection   │  Compare with hash_store.py
+  └────┬─────────────┘
+       │
+       ├─────────────┬─────────────┬─────────────┐
+       ▼             ▼             ▼             ▼
+   [NEW]       [MODIFIED]    [DELETED]    [UNCHANGED]
+       │             │             │             │
+       │             │             │             └──> Skip
+       │             │             │
+       ▼             ▼             ▼
+  ┌─────────────────────────────────────┐
+  │  Embed (SentenceTransformers)       │
+  │  384-dim vectors                    │
+  └────┬────────────────────────────────┘
+       │
+       ├──────────────────┬──────────────────┐
+       ▼                  ▼                  ▼
+  ┌─────────┐      ┌──────────┐      ┌──────────┐
+  │ Milvus  │      │  Delta   │      │   Hash   │
+  │ INSERT  │      │  Lake    │      │  Store   │
+  │ (hot)   │      │  APPEND  │      │  UPDATE  │
+  │         │      │  (cold)  │      │          │
+  └─────────┘      └──────────┘      └──────────┘
+```
+
+### Data Flow: Query Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  QUERY PIPELINE                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  User Query: "What is AI?" [--as-of 2024-01-15]
+       │
+       ▼
+  ┌──────────────┐
+  │ Parse Query  │  Extract: text, temporal intent, time constraint
+  └──────┬───────┘
+         │
+         ▼
+  ┌──────────────┐
+  │ Embed Query  │  SentenceTransformers → 384-dim vector
+  └──────┬───────┘
+         │
+         ▼
+  ┌──────────────┐
+  │ Route Query  │  Decide: hot / cold / hybrid path
+  └──────┬───────┘
+         │
+         ├─────────────────┬─────────────────┬─────────────────┐
+         ▼                 ▼                 ▼                 ▼
+    [CURRENT]        [HISTORICAL]      [COMPARATIVE]     [HYBRID]
+         │                 │                 │                 │
+         ▼                 ▼                 ▼                 ▼
+  ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
+  │  Milvus  │      │  Delta   │      │  Delta   │      │  Both    │
+  │  Search  │      │  Lake    │      │  Lake    │      │  Tiers   │
+  │          │      │  AS OF   │      │  Timeline│      │          │
+  │  <100ms  │      │  <2s     │      │  Query   │      │  Merge   │
+  └────┬─────┘      └────┬─────┘      └────┬─────┘      └────┬─────┘
+       │                 │                 │                 │
+       └─────────────────┴─────────────────┴─────────────────┘
+                                │
+                                ▼
+                         ┌──────────────┐
+                         │ Rank & Merge │
+                         └──────┬───────┘
+                                │
+                                ▼
+                         ┌──────────────┐
+                         │   Results    │
+                         │ + Metadata   │
+                         │ + Provenance │
+                         └──────────────┘
 ```
 
 ### Core Components
 
-1. **CDC Chunker** - Hash-based change detection at chunk level
-2. **Hash Store** - In-memory cache for fast comparison
-3. **Milvus (Hot Tier)** - Active chunks for <100ms queries
-4. **Delta Lake (Cold Tier)** - Complete version history with ACID
-5. **Embedding** - SentenceTransformers (all-MiniLM-L6-v2, 384-dim)
+1. **CDC Chunker** ([chunker.py](src/cdc/chunker.py))
+   - Hash-based change detection at chunk level
+   - SHA-256 hashing for content fingerprinting
+   - Configurable chunk size and overlap
+
+2. **Hash Store** ([hash_store.py](src/cdc/hash_store.py))
+   - In-memory cache for fast hash comparison
+   - JSON persistence (cdc_hash_store.json)
+   - Tracks document → chunk → hash mappings
+
+3. **Milvus (Hot Tier)** ([milvus_db.py](src/vectordb/milvus_db.py))
+   - Active chunks only for fast retrieval
+   - Vector similarity search (<100ms)
+   - In-memory index for performance
+
+4. **Delta Lake (Cold Tier)** ([delta_store.py](src/lakehouse/delta_store.py))
+   - Complete version history with ACID guarantees
+   - Time-travel queries (AS OF timestamp)
+   - Parquet compression for storage efficiency
+   - Polars integration for fast analytics
+
+5. **Embedding Engine**
+   - Model: SentenceTransformers (all-MiniLM-L6-v2)
+   - Dimension: 384
+   - Speed: ~12 chunks/sec (CPU)
+   - Quality: Optimized for semantic similarity
+
+6. **CDC Pipeline** ([cdc_ingest_simple.py](src/pipeline/cdc_ingest_simple.py))
+   - Orchestrates ingestion flow
+   - Handles new, modified, deleted, unchanged chunks
+   - Dual-tier writes (hot + cold)
+   - Transaction coordination
 
 ---
 
@@ -117,7 +408,7 @@ Hash Store Stats:
 
 ## Features
 
-### ✅ Phase 1: CDC Foundation + Cold Storage (Completed)
+### Phase 1: CDC Foundation + Cold Storage (Completed)
 
 - [x] Hash-based CDC with SHA-256
 - [x] Text file loader (simulates streaming)
@@ -133,7 +424,7 @@ Hash Store Stats:
 - [x] Test data generator
 - [x] ACID transactions with Delta Lake
 
-### 🔄 Phase 2: Query Engine + Web UI (Planned)
+### Phase 2: Query Engine + Web UI (Planned)
 
 **Query Engine**:
 - [ ] Query parser with temporal intent detection
@@ -151,7 +442,7 @@ Hash Store Stats:
 - [ ] Version timeline with diff highlighting
 - [ ] Results display with source attribution
 
-### 🔄 Phase 3: Multi-Source Streaming + Conflicts (Planned)
+### Phase 3: Multi-Source Streaming + Conflicts (Planned)
 
 **Source Connectors**:
 - [ ] Wikipedia connector (API-based, simulated streaming)
@@ -165,7 +456,7 @@ Hash Store Stats:
 - [ ] Source-based authority hierarchy
 - [ ] Multi-source reconciliation with conflict flagging
 
-### 🔄 Phase 4: Benchmarking + Validation (Planned)
+### Phase 4: Benchmarking + Validation (Planned)
 
 **Performance Benchmarks**:
 - [ ] Query latency (hot vs cold vs hybrid paths)
@@ -186,7 +477,7 @@ Hash Store Stats:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 LiveVectorLake/
@@ -223,7 +514,7 @@ LiveVectorLake/
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Test CDC Detection
 
@@ -245,27 +536,27 @@ python src/cli.py ingest data/test_news_v2
 
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
-| Initial ingestion | 10 added | 10 added | ✅ |
-| Re-ingest same | 0 added, 10 unchanged | 0 added, 10 unchanged | ✅ |
-| Modified data | 2 added, 2 deleted, 8 unchanged | 2 added, 2 deleted, 8 unchanged | ✅ |
+| Initial ingestion | 10 added | 10 added | Pass |
+| Re-ingest same | 0 added, 10 unchanged | 0 added, 10 unchanged | Pass |
+| Modified data | 2 added, 2 deleted, 8 unchanged | 2 added, 2 deleted, 8 unchanged | Pass |
 
-**CDC Detection Accuracy**: 100% ✅
+**CDC Detection Accuracy**: 100%
 
 ---
 
-## 📈 Performance
+## Performance
 
 ### Phase 1 Benchmarks
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| CDC detection | 99% | 100% | ✅ |
-| Embedding speed | <1s/1000 chunks | ~0.8s/10 chunks | ✅ |
-| Milvus insert (hot) | <100ms | <100ms | ✅ |
-| Delta Lake write (cold) | <500ms | <200ms | ✅ |
-| Hash comparison | <10ms | <10ms | ✅ |
-| Time-travel query | <2s | <1s | ✅ |
-| Historical similarity search | <3s | <2s | ✅ |
+| CDC detection | 99% | 100% | Pass |
+| Embedding speed | <1s/1000 chunks | ~0.8s/10 chunks | Pass |
+| Milvus insert (hot) | <100ms | <100ms | Pass |
+| Delta Lake write (cold) | <500ms | <200ms | Pass |
+| Hash comparison | <10ms | <10ms | Pass |
+| Time-travel query | <2s | <1s | Pass |
+| Historical similarity search | <3s | <2s | Pass |
 
 ### Embedding Details
 
@@ -277,7 +568,7 @@ python src/cli.py ingest data/test_news_v2
 
 ---
 
-## 🛠️ CLI Commands
+## CLI Commands
 
 ### Ingest
 
@@ -311,7 +602,7 @@ python src/cli.py audit article_001
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Milvus Connection Error
 
@@ -336,7 +627,7 @@ docker-compose restart
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 ### Core Documentation
 - **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
@@ -353,13 +644,8 @@ docker-compose restart
 - **[Delta Lake Implementation](DELTA_LAKE_IMPLEMENTATION.md)** - Cold storage technical details
 - **[Test Documentation](tests/README.md)** - Testing guide and scripts
 
-### Quick Links
-- 🚀 [Get Started](QUICKSTART.md) - Installation and first steps
-- 🏗️ [Architecture](docs/ARCHITECTURE.md) - How it works
-- 📊 [Current Status](PROJECT_STATUS.md) - What's done, what's next
-- 🔬 [Research Proposal](docs/Project.md) - Academic context and contributions
-
 ---
-## 📄 License
+
+## License
 
 This project is licensed under the MIT License.
