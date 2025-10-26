@@ -133,29 +133,56 @@ Hash Store Stats:
 - [x] Test data generator
 - [x] ACID transactions with Delta Lake
 
-### 🔄 Phase 2: Query Engine (Planned)
+### 🔄 Phase 2: Query Engine + Web UI (Planned)
 
+**Query Engine**:
 - [ ] Query parser with temporal intent detection
 - [ ] Query router (hot/cold path selection)
-- [ ] Current query implementation (hot path)
-- [ ] Historical query implementation (cold path)
+- [ ] Current query implementation (Milvus hot path, <100ms)
+- [ ] Historical query implementation (Delta Lake cold path, <2s)
 - [ ] Comparative retrieval (timeline of changes)
-- [ ] Query CLI commands
+- [ ] CLI query commands with --as-of flag
 
-### 🔄 Phase 3: Multi-Source Streaming (Planned)
+**Web Interface**:
+- [ ] Streamlit-based web UI
+- [ ] Document upload and ingestion interface
+- [ ] Query interface (current + historical + comparative)
+- [ ] CDC visualization (what changed, when)
+- [ ] Version timeline with diff highlighting
+- [ ] Results display with source attribution
 
-- [ ] Multi-source connectors (Wikipedia, Stack Overflow)
-- [ ] Conflict detection and resolution
-- [ ] Source authority hierarchy
-- [ ] Multi-source reconciliation
+### 🔄 Phase 3: Multi-Source Streaming + Conflicts (Planned)
 
-### 🔄 Phase 4: Benchmarking & Production (Planned)
+**Source Connectors**:
+- [ ] Wikipedia connector (API-based, simulated streaming)
+- [ ] Stack Overflow connector (Stack Exchange API)
+- [ ] Generic connector interface
+- [ ] Source metadata tracking (provenance, authority)
 
-- [ ] Performance benchmarking
-- [ ] Accuracy validation
-- [ ] Audit trail completeness
+**Conflict Management**:
+- [ ] Conflict detection (contradictory information)
+- [ ] Timestamp-based authority (newer preferred)
+- [ ] Source-based authority hierarchy
+- [ ] Multi-source reconciliation with conflict flagging
+
+### 🔄 Phase 4: Benchmarking + Validation (Planned)
+
+**Performance Benchmarks**:
+- [ ] Query latency (hot vs cold vs hybrid paths)
+- [ ] Ingestion throughput (documents/sec, chunks/sec)
+- [ ] Storage efficiency (compression ratio, cost analysis)
+- [ ] CDC detection speed and accuracy
+- [ ] Scalability tests (1K, 10K, 100K chunks)
+
+**Baseline Comparisons**:
+- [ ] Standard RAG (no versioning)
+- [ ] Document-level versioning
+- [ ] Manual re-indexing approach
+
+**Validation & Documentation**:
+- [ ] Accuracy validation (CDC, temporal queries, conflict detection)
 - [ ] Production deployment guide
-- [ ] Final documentation
+- [ ] Comprehensive documentation
 
 ---
 
@@ -193,38 +220,6 @@ LiveVectorLake/
 ├── requirements.txt
 └── QUICKSTART.md
 ```
-
----
-
-## 🔬 Research Contributions
-
-### 1. Chunk-Level CDC for RAG
-**Innovation**: First system to apply content-addressable hashing at chunk granularity for knowledge bases
-
-**Why Novel**: Existing work versions entire documents; we version paragraphs
-
-**Impact**: Enables detection of subtle changes (single sentence edits)
-
-### 2. Dual-Tier Temporal Storage with ACID
-**Innovation**: Hot tier (Milvus) for current, cold tier (Delta Lake) for history with ACID guarantees
-
-**Why Novel**: No prior RAG system optimizes for both <100ms current queries AND historical reconstruction with transactional consistency
-
-**Impact**: 10-100x cost savings on historical storage + complete audit trail
-
-### 3. Automatic Version Management
-**Innovation**: No manual tracking required; hashes determine versions automatically
-
-**Why Novel**: Existing systems require external dependency tracking or manual versioning
-
-**Impact**: Zero-overhead versioning for streaming data
-
-### 4. Historical Similarity Search
-**Innovation**: Semantic search on time-travel queries using Delta Lake
-
-**Why Novel**: First RAG system enabling "What was similar to X on date Y?" queries
-
-**Impact**: Enables temporal analysis and compliance queries
 
 ---
 
@@ -383,21 +378,6 @@ This project is licensed under the MIT License.
 
 ---
 
-## 🎓 Citation
-
-If you use LiveVectorLake in your research, please cite:
-
-```bibtex
-@software{livevectorlake2024,
-  title={LiveVectorLake: A Streaming Temporal RAG System with Automatic Change Detection},
-  author={Your Name},
-  year={2024},
-  url={https://github.com/yourusername/LiveVectorLake}
-}
-```
-
----
-
 ## 📧 Contact
 
 - **Author**: Your Name
@@ -415,4 +395,4 @@ If you use LiveVectorLake in your research, please cite:
 
 ---
 
-**Built with ❤️ for research in temporal knowledge management**
+**Built with ❤️ for temporal knowledge management**
