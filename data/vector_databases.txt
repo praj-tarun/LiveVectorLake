@@ -1,4 +1,0 @@
-Vector databases are specialized databases designed to store and query high-dimensional vectors efficiently.
-They use similarity search algorithms like cosine similarity and Euclidean distance to find related vectors.
-Popular vector databases include ChromaDB, Qdrant, Pinecone, and Weaviate.
-Vector databases are essential for applications like semantic search, recommendation systems, and RAG pipelines.

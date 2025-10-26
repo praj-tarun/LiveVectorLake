@@ -46,3 +46,17 @@ models/
 # Logs
 *.log
 logs/
+
+# Runtime files (CDC state)
+cdc_hash_store.json
+cdc_metadata.json
+lakehouse/
+
+# Docker volumes
+volumes/
+
+# Test outputs
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
