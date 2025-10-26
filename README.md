@@ -1,11 +1,11 @@
-# LiveVectorLake 🚀
+# LiveVectorLake
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **A streaming, versioned, temporal RAG system with automatic change detection**
 
-## 🎯 Overview
+## Overview
 
 LiveVectorLake is a research prototype that solves a fundamental problem in AI knowledge systems: **How do you maintain a knowledge base that stays current with streaming data while preserving complete historical versions for audit and temporal queries?**
 
@@ -27,7 +27,7 @@ A **streaming, versioned, temporal RAG system** with:
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -54,7 +54,7 @@ A **streaming, versioned, temporal RAG system** with:
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -115,7 +115,7 @@ Hash Store Stats:
 
 ---
 
-## 📊 Features
+## Features
 
 ### ✅ Phase 1: CDC Foundation + Cold Storage (Completed)
 
@@ -360,39 +360,6 @@ docker-compose restart
 - 🔬 [Research Proposal](docs/Project.md) - Academic context and contributions
 
 ---
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
----
-
 ## 📄 License
 
 This project is licensed under the MIT License.
-
----
-
-## 📧 Contact
-
-- **Author**: Your Name
-- **Email**: your.email@example.com
-- **GitHub**: [@yourusername](https://github.com/yourusername)
-
----
-
-## 🙏 Acknowledgments
-
-- **Milvus** - Vector database (hot tier)
-- **Delta Lake** - Versioned storage with ACID (cold tier)
-- **Polars** - Fast DataFrame library
-- **SentenceTransformers** - Embedding models
-
----
-
-**Built with ❤️ for temporal knowledge management**
