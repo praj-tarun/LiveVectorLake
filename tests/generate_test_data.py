@@ -98,6 +98,6 @@ if __name__ == '__main__':
     generate_modified_data()
     print("\nTest data ready!")
     print("\nUsage:")
-    print("  1. Ingest initial data: python src/cli.py ingest data/test_news")
+    print("  1. Ingest initial data: python src/cli.py ingest data/test_news --reset")
     print("  2. Ingest modified data: python src/cli.py ingest data/test_news_v2")
-    print("  3. Check CDC summary to see detected changes")
+    print("  3. Test Delta Lake: python tests/test_delta_lake.py")

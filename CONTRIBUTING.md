@@ -46,11 +46,14 @@ git checkout -b feature/your-feature-name
 
 ```bash
 # Generate test data
-python generate_test_data.py
+python tests/generate_test_data.py
 
 # Test ingestion
 python src/cli.py ingest data/test_news --reset
 python src/cli.py ingest data/test_news_v2
+
+# Test Delta Lake
+python tests/test_delta_lake.py
 ```
 
 ### 4. Commit

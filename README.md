@@ -79,7 +79,7 @@ docker-compose up -d
 ### Generate Test Data
 
 ```bash
-python generate_test_data.py
+python tests/generate_test_data.py
 ```
 
 This creates:
@@ -171,13 +171,15 @@ LiveVectorLake/
 │   ├── vectordb/
 │   │   └── milvus_db.py    # Milvus integration
 │   ├── lakehouse/
-│   │   └── delta_store.py  # Delta Lake (future)
+│   │   └── delta_store.py  # Delta Lake storage
 │   ├── pipeline/
 │   │   └── cdc_ingest_simple.py # CDC pipeline
 │   └── cli.py              # CLI tool
+├── tests/
+│   ├── generate_test_data.py # Test data generator
+│   └── test_delta_lake.py    # Delta Lake tests
 ├── .gitignore
 ├── docker-compose.yml
-├── generate_test_data.py
 ├── README.md
 ├── requirements.txt
 └── QUICKSTART.md

@@ -29,7 +29,7 @@ pip install sentence-transformers pymilvus
 ### 3. Generate Test Data
 
 ```bash
-python generate_test_data.py
+python tests/generate_test_data.py
 ```
 
 This creates:

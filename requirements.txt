@@ -1,15 +1,16 @@
 # Requirements for the livevectorlake project
 
-# This file lists the dependencies required for the project, including libraries for vector databases, embedding, and LLMs.
+# Core dependencies
+sentence-transformers>=2.2.2
+pymilvus>=2.3.0
+numpy>=1.21.0
 
-sentence-transformers==2.2.2
-qdrant-client==1.0.0
-fastapi==0.75.0
-uvicorn==0.17.0
-ollama==0.1.0
-numpy==1.21.0
-pandas==1.3.0
+# Delta Lake (cold storage)
+polars>=1.0.0
+deltalake>=1.0.0
+pyarrow>=12.0.0
+
+# Optional dependencies
 click==8.1.7
 python-dotenv==1.0.0
-pytest==6.2.4
-jupyter==1.0.0
+pytest>=6.2.4

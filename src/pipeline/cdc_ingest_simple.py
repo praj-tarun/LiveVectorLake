@@ -1,46 +1,29 @@
-"""CDC-aware ingestion pipeline (simplified without Delta Lake for Python 3.13)"""
+"""CDC-aware ingestion pipeline with Delta Lake cold storage"""
 from typing import List, Dict
 from datetime import datetime
 from sentence_transformers import SentenceTransformer
 import sys
-import json
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from cdc.chunker import chunk_text, hash_chunk, create_chunk_record, compare_chunks
 from cdc.hash_store import HashStore
 from vectordb.milvus_db import MilvusDB
+from lakehouse.delta_store import DeltaStore
 
 class CDCIngestionPipeline:
-    """Ingestion pipeline with CDC support (simplified)"""
+    """Ingestion pipeline with CDC support and Delta Lake cold storage"""
     
     def __init__(self, embedding_model: str = "all-MiniLM-L6-v2", reset_milvus: bool = False):
         self.model = SentenceTransformer(embedding_model)
         self.hash_store = HashStore()
         self.milvus = MilvusDB()
-        self.metadata_file = Path("cdc_metadata.json")
+        self.delta_store = DeltaStore()
         
         # Initialize Milvus collection if needed
         if reset_milvus:
             self.milvus.connect()
             self.milvus.create_collection()
-    
-    def save_metadata(self, records: List[Dict]):
-        """Save chunk metadata to JSON (replaces Delta Lake for now)"""
-        existing = []
-        if self.metadata_file.exists():
-            try:
-                with open(self.metadata_file, 'r') as f:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        existing = data
-            except:
-                existing = []
-        
-        existing.extend(records)
-        
-        with open(self.metadata_file, 'w') as f:
-            json.dump(existing, f, indent=2)
         
     def ingest_document(self, doc_id: str, content: str) -> Dict:
         """Ingest document with CDC detection"""
@@ -60,24 +43,15 @@ class CDCIngestionPipeline:
         timestamp = int(datetime.utcnow().timestamp())
         
         for idx, (chunk_hash, chunk_content) in enumerate(cdc_result['added']):
-            record = {
-                'chunk_id': chunk_hash,
-                'text': chunk_content,
-                'doc_id': doc_id,
-                'chunk_index': idx,
-                'valid_from': timestamp,
-                'valid_to': None,
-                'status': 'active'
-            }
-            added_records.append(record)
             added_texts.append(chunk_content)
             added_hashes.append(chunk_hash)
         
         # Step 4: Embed new chunks
+        delta_records = []
         if added_texts:
             vectors = self.model.encode(added_texts).tolist()
             
-            # Step 5: Insert into Milvus (hot tier)
+            # Step 5: Insert into Milvus (hot tier - active chunks only)
             self.milvus.connect()
             doc_ids = [doc_id] * len(added_hashes)
             statuses = ['active'] * len(added_hashes)
@@ -85,31 +59,42 @@ class CDCIngestionPipeline:
             valid_to_list = [0] * len(added_hashes)  # 0 means NULL/active
             
             self.milvus.insert(added_hashes, vectors, statuses, doc_ids, valid_from_list, valid_to_list)
+            
+            # Step 6: Insert into Delta Lake (cold tier - complete history)
+            for idx, (chunk_hash, text_content, vector) in enumerate(zip(added_hashes, added_texts, vectors)):
+                delta_records.append({
+                    'chunk_id': chunk_hash,
+                    'content_text': text_content,
+                    'content_vector': vector,
+                    'doc_id': doc_id,
+                    'valid_from': timestamp,
+                    'valid_to': 0,  # 0 means NULL/active
+                    'status': 'active',
+                    'version_number': 1  # Simplified versioning
+                })
         
-        # Step 6: Handle deleted chunks (mark inactive)
-        deleted_records = []
+        # Step 7: Handle deleted chunks (mark superseded in Delta Lake)
         for chunk_hash in cdc_result['deleted']:
-            record = {
+            delta_records.append({
                 'chunk_id': chunk_hash,
-                'text': '',
+                'content_text': '',
+                'content_vector': [0.0] * 384,  # Placeholder vector
                 'doc_id': doc_id,
-                'chunk_index': -1,
                 'valid_from': 0,
                 'valid_to': timestamp,
-                'status': 'inactive'
-            }
-            deleted_records.append(record)
+                'status': 'superseded',
+                'version_number': 0
+            })
         
-        # Step 7: Save metadata to JSON
-        all_records = added_records + deleted_records
-        if all_records:
-            self.save_metadata(all_records)
+        # Step 8: Write to Delta Lake
+        if delta_records:
+            self.delta_store.write_chunks(delta_records)
         
-        # Step 8: Update hash store
+        # Step 9: Update hash store
         new_hash_set = {h for h, _ in chunk_tuples}
         self.hash_store.update_hashes(doc_id, new_hash_set)
         
-        # Step 9: Return CDC summary
+        # Step 10: Return CDC summary
         summary = cdc_result['summary']
         summary['doc_id'] = doc_id
         summary['timestamp'] = datetime.utcnow().isoformat() + 'Z'
