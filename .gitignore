@@ -55,6 +55,7 @@ lakehouse/
 # Internal project documents (not for public repo)
 docs/PROJECT_INTERNAL.md
 docs/CONTEXT.md
+docs/STYLE_GUIDE.md
 
 # Docker volumes
 volumes/

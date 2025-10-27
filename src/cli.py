@@ -6,6 +6,8 @@ sys.path.append(str(Path(__file__).parent))
 
 from sources.text_loader import load_text_files, load_single_file
 from pipeline.cdc_ingest_simple import CDCIngestionPipeline
+from query_engine import QueryEngine
+from datetime import datetime
 
 def ingest_command(args):
     """Handle ingest command"""
@@ -38,9 +40,23 @@ def ingest_command(args):
         sys.exit(1)
 
 def query_command(args):
-    """Handle query command (placeholder for Phase 2)"""
-    print("Query command will be implemented in Phase 2")
-    print(f"Query: {args.query}")
+    """Handle query command"""
+    engine = QueryEngine()
+    
+    if args.as_of:
+        # Historical query
+        try:
+            as_of_date = datetime.strptime(args.as_of, '%Y-%m-%d')
+            as_of_timestamp = int(as_of_date.timestamp())
+            results = engine.query_historical(args.query, as_of_timestamp, top_k=args.top_k)
+            engine.print_results(results, args.query, query_type="historical")
+        except ValueError:
+            print(f"Error: Invalid date format. Use YYYY-MM-DD")
+            sys.exit(1)
+    else:
+        # Current query
+        results = engine.query_current(args.query, top_k=args.top_k)
+        engine.print_results(results, args.query, query_type="current")
 
 def audit_command(args):
     """Handle audit command (placeholder for Phase 4)"""
@@ -57,10 +73,11 @@ def main():
     ingest_parser.add_argument('--pattern', default='*.txt', help='File pattern (default: *.txt)')
     ingest_parser.add_argument('--reset', action='store_true', help='Reset Milvus collection')
     
-    # Query command (placeholder)
-    query_parser = subparsers.add_parser('query', help='Query knowledge base (Phase 2)')
+    # Query command
+    query_parser = subparsers.add_parser('query', help='Query knowledge base')
     query_parser.add_argument('query', help='Query text')
-    query_parser.add_argument('--as-of', help='Historical query timestamp')
+    query_parser.add_argument('--as-of', help='Historical query date (YYYY-MM-DD)')
+    query_parser.add_argument('--top-k', type=int, default=5, help='Number of results (default: 5)')
     
     # Audit command (placeholder)
     audit_parser = subparsers.add_parser('audit', help='Audit document history (Phase 4)')
