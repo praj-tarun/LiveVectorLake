@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).parent))
 from vectordb.milvus_db import MilvusDB
 from lakehouse.delta_store import DeltaStore
 import numpy as np
+import polars as pl
 
 class QueryEngine:
     """Handles current and historical queries with dual-tier retrieval"""
@@ -23,9 +24,36 @@ class QueryEngine:
         query_vector = self.model.encode(query_text).tolist()
         
         self.milvus.connect()
-        results = self.milvus.search(query_vector, limit=top_k)
         
-        return self._format_results(results, query_type="current")
+        # Debug: Check collection stats
+        if not self.milvus.collection:
+            from pymilvus import Collection
+            self.milvus.collection = Collection(self.milvus.collection_name)
+        
+        self.milvus.collection.load()
+        num_entities = self.milvus.collection.num_entities
+        print(f"DEBUG: Collection has {num_entities} entities")
+        
+        results = self.milvus.search(query_vector, limit=top_k)
+        print(f"DEBUG: Search returned {len(results)} results")
+        
+        formatted = self._format_results(results, query_type="current")
+        
+        # Enrich with content from Delta Lake for display
+        chunk_ids = [r['chunk_id'] for r in formatted if r['chunk_id']]
+        if chunk_ids:
+            delta_chunks = self.delta_store.read_chunks()
+            if not delta_chunks.is_empty():
+                for result in formatted:
+                    chunk_data = delta_chunks.filter(
+                        (pl.col('chunk_id') == result['chunk_id']) & 
+                        (pl.col('status') == 'active')
+                    )
+                    if len(chunk_data) > 0:
+                        result['content'] = chunk_data['content_text'][0]
+                        result['timestamp'] = chunk_data['valid_from'][0]
+        
+        return formatted
     
     def query_historical(self, query_text: str, as_of_timestamp: int, top_k: int = 5) -> List[Dict]:
         """Query historical chunks from Delta Lake (cold tier)"""

@@ -666,6 +666,35 @@ docker-compose restart
 
 ---
 
+## Future Work
+
+### Temporal Embeddings in Vector Space
+
+Current implementation uses timestamp filtering before vector search (two-stage approach). Future work could explore embedding time as additional vector dimensions for unified semantic-temporal similarity.
+
+**Concept:**
+- Current: 384-dim semantic embedding + timestamp metadata
+- Proposed: 385-dim embedding (384 semantic + 1 temporal)
+- Benefit: Single-stage retrieval with natural recency bias
+
+**Use cases:**
+- "What was trending about X in 2020?" - Natural temporal weighting
+- "How did X definition evolve?" - Timeline-aware results
+- "Recent developments in X" - Automatic recency prioritization
+
+**Implementation:**
+- Normalize timestamps to [0, 1] range
+- Concatenate to content embeddings
+- Tune semantic vs temporal weight balance
+- Re-embed corpus with temporal dimension
+
+**Research contribution:**
+- First temporal RAG with time embedded in vector space
+- Enables unified semantic-temporal similarity scoring
+- Novel query patterns for temporal trend analysis
+
+---
+
 ## License
 
 This project is licensed under the MIT License.
