@@ -52,6 +52,10 @@ cdc_hash_store.json
 cdc_metadata.json
 lakehouse/
 
+# Temporary files
+*.tmp
+*.bak
+
 # Internal project documents (not for public repo)
 docs/PROJECT_INTERNAL.md
 docs/CONTEXT.md

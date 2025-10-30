@@ -25,8 +25,14 @@ class CDCIngestionPipeline:
             self.milvus.connect()
             self.milvus.create_collection()
         
-    def ingest_document(self, doc_id: str, content: str) -> Dict:
-        """Ingest document with CDC detection"""
+    def ingest_document(self, doc_id: str, content: str, source: str = "file") -> Dict:
+        """Ingest document with CDC detection
+        
+        Args:
+            doc_id: Document identifier
+            content: Document text content
+            source: Source type (file, wikipedia, stackoverflow, etc.)
+        """
         # Step 1: Chunk and hash
         text_chunks = chunk_text(content)
         chunk_tuples = [(hash_chunk(chunk), chunk) for chunk in text_chunks]
@@ -70,7 +76,8 @@ class CDCIngestionPipeline:
                     'valid_from': timestamp,
                     'valid_to': 0,  # 0 means NULL/active
                     'status': 'active',
-                    'version_number': 1  # Simplified versioning
+                    'version_number': 1,  # Simplified versioning
+                    'source': source  # Track source
                 })
         
         # Step 7: Handle deleted chunks (mark superseded in Delta Lake)
