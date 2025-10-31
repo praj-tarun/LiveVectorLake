@@ -52,6 +52,10 @@ cdc_hash_store.json
 cdc_metadata.json
 lakehouse/
 
+# Benchmark data and results
+data/benchmark_corpus/
+benchmark_results_*.json
+
 # Temporary files
 *.tmp
 *.bak

@@ -31,11 +31,7 @@ class QueryEngine:
             self.milvus.collection = Collection(self.milvus.collection_name)
         
         self.milvus.collection.load()
-        num_entities = self.milvus.collection.num_entities
-        print(f"DEBUG: Collection has {num_entities} entities")
-        
         results = self.milvus.search(query_vector, limit=top_k)
-        print(f"DEBUG: Search returned {len(results)} results")
         
         formatted = self._format_results(results, query_type="current")
         

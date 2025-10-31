@@ -468,20 +468,21 @@ Hash Store Stats:
 - [x] Realistic version evolution simulation
 
 **Performance Benchmarks** (In Progress):
-- [ ] Query latency (hot vs cold vs hybrid paths)
-- [ ] Ingestion throughput (documents/sec, chunks/sec)
-- [ ] Storage efficiency (compression ratio, cost analysis)
-- [ ] CDC detection speed and accuracy
-- [ ] Scalability tests (1K, 10K, 100K chunks)
+- [x] Benchmark suite created
+- [x] Initial metrics collected
+- [ ] Performance optimization
+- [ ] Baseline comparisons
+- [ ] Scalability tests
 
-**Baseline Comparisons** (Planned):
-- [ ] Standard RAG (no versioning)
-- [ ] Document-level versioning
-- [ ] Manual re-indexing approach
+**Initial Benchmark Results**:
+- Ingestion: 1.58 chunks/s (100 docs, 500 chunks)
+- CDC Detection: 100% accuracy
+- Query Latency: Hot 314ms p50, Cold 204ms p50
+- Storage: 1.81x compression ratio
 
-**Validation & Documentation** (Planned):
-- [ ] Accuracy validation (CDC, temporal queries, conflict detection)
-- [ ] Production deployment guide
+**Remaining Tasks**:
+- [ ] Baseline comparisons (standard RAG, document-level versioning)
+- [ ] Accuracy validation
 - [ ] Paper draft
 
 ---
