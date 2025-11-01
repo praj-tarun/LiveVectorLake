@@ -14,40 +14,28 @@ import polars as pl
 class QueryEngine:
     """Handles current and historical queries with dual-tier retrieval"""
     
-    def __init__(self, embedding_model: str = "all-MiniLM-L6-v2"):
+    def __init__(self, milvus_db=None, delta_store=None, embedding_model: str = "all-MiniLM-L6-v2"):
         self.model = SentenceTransformer(embedding_model)
-        self.milvus = MilvusDB()
-        self.delta_store = DeltaStore()
+        self.milvus = milvus_db if milvus_db else MilvusDB()
+        self.delta_store = delta_store if delta_store else DeltaStore()
         
     def query_current(self, query_text: str, top_k: int = 5) -> List[Dict]:
-        """Query current/active chunks from Milvus (hot tier)"""
+        """Query current/active chunks from Milvus (hot tier - optimized)"""
         query_vector = self.model.encode(query_text).tolist()
         
         self.milvus.connect()
-        
-        # Debug: Check collection stats
-        if not self.milvus.collection:
-            from pymilvus import Collection
-            self.milvus.collection = Collection(self.milvus.collection_name)
-        
-        self.milvus.collection.load()
         results = self.milvus.search(query_vector, limit=top_k)
         
-        formatted = self._format_results(results, query_type="current")
-        
-        # Enrich with content from Delta Lake for display
-        chunk_ids = [r['chunk_id'] for r in formatted if r['chunk_id']]
-        if chunk_ids:
-            delta_chunks = self.delta_store.read_chunks()
-            if not delta_chunks.is_empty():
-                for result in formatted:
-                    chunk_data = delta_chunks.filter(
-                        (pl.col('chunk_id') == result['chunk_id']) & 
-                        (pl.col('status') == 'active')
-                    )
-                    if len(chunk_data) > 0:
-                        result['content'] = chunk_data['content_text'][0]
-                        result['timestamp'] = chunk_data['valid_from'][0]
+        formatted = []
+        for result in results:
+            formatted.append({
+                'chunk_id': result.get('chunk_id'),
+                'doc_id': result.get('doc_id'),
+                'similarity': result.get('score', 0.0),
+                'content': result.get('content', ''),
+                'timestamp': result.get('valid_from'),
+                'query_type': 'current'
+            })
         
         return formatted
     
@@ -61,9 +49,9 @@ class QueryEngine:
             return []
         
         chunk_vectors = np.array([chunk['content_vector'] for chunk in historical_chunks])
-        similarities = np.dot(chunk_vectors, query_vector) / (
-            np.linalg.norm(chunk_vectors, axis=1) * np.linalg.norm(query_vector)
-        )
+        norms = np.linalg.norm(chunk_vectors, axis=1) * np.linalg.norm(query_vector)
+        norms = np.where(norms == 0, 1e-10, norms)  # Avoid division by zero
+        similarities = np.dot(chunk_vectors, query_vector) / norms
         
         top_indices = np.argsort(similarities)[::-1][:top_k]
         

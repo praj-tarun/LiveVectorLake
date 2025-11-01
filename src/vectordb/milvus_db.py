@@ -7,13 +7,16 @@ class MilvusDB:
         self.port = port
         self.collection_name = collection_name
         self.collection = None
+        self._connected = False
         
     def connect(self):
-        """Connect to Milvus"""
-        connections.connect("default", host=self.host, port=self.port)
+        """Connect to Milvus (persistent connection)"""
+        if not self._connected:
+            connections.connect("default", host=self.host, port=self.port)
+            self._connected = True
         
     def create_collection(self, dim: int = 384):
-        """Create collection with schema including temporal fields"""
+        """Create collection with schema including temporal fields and content"""
         if utility.has_collection(self.collection_name):
             utility.drop_collection(self.collection_name)
             
@@ -23,34 +26,40 @@ class MilvusDB:
             FieldSchema(name="status", dtype=DataType.VARCHAR, max_length=16),
             FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=256),
             FieldSchema(name="valid_from", dtype=DataType.INT64),
-            FieldSchema(name="valid_to", dtype=DataType.INT64)
+            FieldSchema(name="valid_to", dtype=DataType.INT64),
+            FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=2000)
         ]
         schema = CollectionSchema(fields, "Document chunk collection with versioning")
         self.collection = Collection(self.collection_name, schema)
         
-        # Create index
-        index_params = {"metric_type": "IP", "index_type": "HNSW", "params": {"M": 16, "efConstruction": 200}}
+        # Optimized index for low latency
+        index_params = {"metric_type": "IP", "index_type": "HNSW", "params": {"M": 8, "efConstruction": 100}}
         self.collection.create_index(field_name="vector", index_params=index_params)
+        self.collection.load()
         
-    def insert(self, chunk_ids: List[str], vectors: List[List[float]], statuses: List[str], doc_ids: List[str], valid_from: List[int], valid_to: List[int]):
-        """Insert vectors into collection with temporal metadata"""
+    def insert(self, chunk_ids: List[str], vectors: List[List[float]], statuses: List[str], doc_ids: List[str], valid_from: List[int], valid_to: List[int], contents: List[str] = None):
+        """Insert vectors into collection with temporal metadata and content"""
         if not self.collection:
             self.collection = Collection(self.collection_name)
+            self.collection.load()
         
-        data = [chunk_ids, vectors, statuses, doc_ids, valid_from, valid_to]
+        if contents is None:
+            contents = [""] * len(chunk_ids)
+        
+        data = [chunk_ids, vectors, statuses, doc_ids, valid_from, valid_to, contents]
         self.collection.insert(data)
         self.collection.flush()
         
     def search(self, query_vector: List[float], limit: int = 5, filter_expr: str = "status == 'active'") -> List[Dict]:
-        """Search for similar vectors"""
+        """Search for similar vectors (optimized)"""
         if not self.collection:
             self.collection = Collection(self.collection_name)
+            self.collection.load()
         
-        self.collection.load()
-        search_params = {"metric_type": "IP", "params": {"ef": 128}}
-        results = self.collection.search([query_vector], "vector", search_params, limit=limit, expr=filter_expr, output_fields=["chunk_id", "status", "doc_id", "valid_from", "valid_to"])
+        search_params = {"metric_type": "IP", "params": {"ef": 64}}
+        results = self.collection.search([query_vector], "vector", search_params, limit=limit, expr=filter_expr, output_fields=["chunk_id", "status", "doc_id", "valid_from", "valid_to", "content"])
         
-        return [{"chunk_id": hit.id, "score": hit.score, "status": hit.entity.get("status"), "doc_id": hit.entity.get("doc_id"), "valid_from": hit.entity.get("valid_from"), "valid_to": hit.entity.get("valid_to")} for hit in results[0]]
+        return [{"chunk_id": hit.id, "score": hit.score, "status": hit.entity.get("status"), "doc_id": hit.entity.get("doc_id"), "valid_from": hit.entity.get("valid_from"), "valid_to": hit.entity.get("valid_to"), "content": hit.entity.get("content", "")} for hit in results[0]]
     
     def update_status(self, chunk_ids: List[str], new_status: str = "inactive"):
         """Mark chunks as inactive (for CDC)"""

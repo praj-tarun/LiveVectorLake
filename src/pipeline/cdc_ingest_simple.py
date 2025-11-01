@@ -64,7 +64,7 @@ class CDCIngestionPipeline:
             valid_from_list = [timestamp] * len(added_hashes)
             valid_to_list = [0] * len(added_hashes)  # 0 means NULL/active
             
-            self.milvus.insert(added_hashes, vectors, statuses, doc_ids, valid_from_list, valid_to_list)
+            self.milvus.insert(added_hashes, vectors, statuses, doc_ids, valid_from_list, valid_to_list, added_texts)
             
             # Step 6: Insert into Delta Lake (cold tier - complete history)
             for idx, (chunk_hash, text_content, vector) in enumerate(zip(added_hashes, added_texts, vectors)):
