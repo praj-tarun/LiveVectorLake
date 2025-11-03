@@ -34,11 +34,12 @@ def compare_chunks(new_chunks: List[Tuple[str, str]], old_hashes: set) -> dict:
     """Compare new chunks with stored hashes and categorize changes
     
     Args:
-        new_chunks: List of (hash, text) tuples
+        new_chunks: List of (hash, text) tuples with implicit position (list index)
         old_hashes: Set of previously stored chunk hashes
     
     Returns:
         Dict with keys: added, deleted, unchanged, summary
+        Each added/unchanged chunk includes (hash, text, position)
     """
     new_hash_set = {h for h, _ in new_chunks}
     
@@ -46,9 +47,9 @@ def compare_chunks(new_chunks: List[Tuple[str, str]], old_hashes: set) -> dict:
     deleted = old_hashes - new_hash_set
     unchanged = new_hash_set & old_hashes
     
-    # Create chunk records for each category
-    added_chunks = [(h, t) for h, t in new_chunks if h in added]
-    unchanged_chunks = [(h, t) for h, t in new_chunks if h in unchanged]
+    # Create chunk records with position (list index)
+    added_chunks = [(h, t, idx) for idx, (h, t) in enumerate(new_chunks) if h in added]
+    unchanged_chunks = [(h, t, idx) for idx, (h, t) in enumerate(new_chunks) if h in unchanged]
     
     return {
         'added': added_chunks,

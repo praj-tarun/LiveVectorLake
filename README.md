@@ -314,6 +314,7 @@ A **real-time, self-updating knowledge base** that:
 1. **CDC Chunker** ([chunker.py](src/cdc/chunker.py))
    - Hash-based change detection at chunk level
    - SHA-256 hashing for content fingerprinting
+   - Position tracking for audit trails
    - Configurable chunk size and overlap
 
 2. **Hash Store** ([hash_store.py](src/cdc/hash_store.py))
@@ -413,6 +414,7 @@ Hash Store Stats:
 
 **CDC Foundation + Storage**:
 - Hash-based CDC with SHA-256 (100% accuracy)
+- Position metadata for chunk tracking and audit trails
 - Dual-tier storage (Milvus hot + Delta Lake cold)
 - ACID transactions with Delta Lake
 - Time-travel queries on historical data
@@ -430,23 +432,12 @@ Hash Store Stats:
 - Query interface (current + historical)
 - CDC visualization
 
-**Benchmarking** (In-Progress):
-
-*Completed:*
-- **Benchmark 1: Knowledge Freshness** - Measures update-to-query latency (0.13s vs 303s baseline, 2338× faster)
-- **Benchmark 2: Processing Efficiency** - Measures CDC savings (2.4% vs 100% re-processing, 97.6% savings)
-- **Benchmark 3: Storage Cost** - Analyzes hot/cold tier overhead (4.5× total, 1.8× compression)
-- **Benchmark 4: Temporal Accuracy** - Validates historical query precision (96% accuracy, 0% leakage)
-- Versioned corpus (100 docs × 5 versions)
+**Benchmarking**:
+- Comprehensive benchmark suite (5 core benchmarks)
+- Versioned corpus generator (100 docs × 5 versions)
 - Standard RAG baseline comparison
-- Automated benchmark suite with progress tracking
-- Prerequisite checker for setup validation
-
-*Planned:*
-- **Scalability Testing** - Test with 1K, 10K, 100K documents to measure system limits
-- **Performance Profiling** - CPU, memory, I/O bottleneck analysis and optimization
-- **Storage Growth Analysis** - Long-term storage costs with version accumulation
-- **End-to-End Latency** - Complete pipeline breakdown from ingestion to query
+- Automated execution with clean output
+- JSON results for publication
 
 ---
 
@@ -482,13 +473,10 @@ LiveVectorLake/
 ├── tests/
 │   ├── baselines/
 │   │   └── standard_rag.py # Baseline comparison
-│   ├── benchmark_1_knowledge_freshness.py
-│   ├── benchmark_2_processing_efficiency.py
-│   ├── benchmark_3_storage_cost.py
-│   ├── benchmark_4_temporal_accuracy.py
-│   ├── check_prerequisites.py
-│   ├── run_all_benchmarks.py
+│   ├── benchmark_suite.py  # Main benchmark suite
+│   ├── generate_versioned_corpus.py
 │   ├── generate_test_data.py
+│   ├── BENCHMARKS_README.md
 │   └── test_*.py           # Unit tests
 ├── .gitignore
 ├── docker-compose.yml
@@ -504,17 +492,11 @@ LiveVectorLake/
 ### Run Benchmarks
 
 ```bash
-# Check prerequisites
-python tests/check_prerequisites.py
+# Generate benchmark corpus
+python tests/generate_versioned_corpus.py
 
-# Run all benchmarks
-python tests/run_all_benchmarks.py
-
-# Run individual benchmarks
-python tests/benchmark_1_knowledge_freshness.py
-python tests/benchmark_2_processing_efficiency.py
-python tests/benchmark_3_storage_cost.py
-python tests/benchmark_4_temporal_accuracy.py
+# Run complete benchmark suite
+python tests/benchmark_suite.py
 ```
 
 ### Test CDC Detection
@@ -647,7 +629,7 @@ docker-compose restart
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) - System design and components
-- [Benchmarking Strategy](docs/BENCHMARKING_STRATEGY.md) - Evaluation approach
+- [Benchmarking Guide](tests/BENCHMARKS_README.md) - How to run benchmarks
 - [Problem Statement](docs/Problem_statement.md) - Research problems addressed
 - [Project Document](docs/Project.md) - Complete research proposal
 - [Roadmap](docs/roadmap.md) - Implementation timeline
@@ -655,9 +637,6 @@ docker-compose restart
 ---
 
 ## Future Work
-
-### Multi-Source Ingestion
-Extend to handle multiple data sources with conflict detection and resolution. Current implementation assumes a single ingestion pipeline.
 
 ### Temporal Embeddings
 Embed time as additional vector dimensions (385-dim: 384 semantic + 1 temporal) for unified semantic-temporal similarity scoring.

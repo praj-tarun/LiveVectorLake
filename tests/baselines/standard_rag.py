@@ -33,10 +33,12 @@ class StandardRAG:
         chunk_ids = [f"{doc_id}_{i}" for i in range(len(chunks))]
         doc_ids = [doc_id] * len(chunks)
         statuses = ['active'] * len(chunks)
-        timestamps = [0] * len(chunks)
+        positions = list(range(len(chunks)))
+        valid_from = [0] * len(chunks)
+        valid_to = [0] * len(chunks)
         contents = chunks
         
-        self.milvus.insert(chunk_ids, vectors, statuses, doc_ids, timestamps, timestamps, contents)
+        self.milvus.insert(chunk_ids, vectors, statuses, doc_ids, positions, valid_from, valid_to, contents)
         self.documents[doc_id] = {'chunks': len(chunks)}
         
     def _delete_document(self, doc_id: str):

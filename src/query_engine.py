@@ -31,6 +31,7 @@ class QueryEngine:
             formatted.append({
                 'chunk_id': result.get('chunk_id'),
                 'doc_id': result.get('doc_id'),
+                'position': result.get('position'),
                 'similarity': result.get('score', 0.0),
                 'content': result.get('content', ''),
                 'timestamp': result.get('valid_from'),
@@ -61,6 +62,7 @@ class QueryEngine:
             results.append({
                 'chunk_id': chunk['chunk_id'],
                 'doc_id': chunk['doc_id'],
+                'position': chunk.get('position'),
                 'content': chunk['content_text'],
                 'similarity': float(similarities[idx]),
                 'timestamp': chunk['valid_from'],
@@ -92,6 +94,8 @@ class QueryEngine:
         for i, result in enumerate(results, 1):
             print(f"{i}. Document: {result['doc_id']}")
             print(f"   Chunk ID: {result['chunk_id']}")
+            if result.get('position') is not None:
+                print(f"   Position: {result['position']} (paragraph {result['position'] + 1})")
             print(f"   Similarity: {result['similarity']:.4f}")
             if 'content' in result:
                 content_preview = result['content'][:100] + "..." if len(result['content']) > 100 else result['content']

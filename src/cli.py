@@ -32,6 +32,7 @@ def ingest_command(args):
             print("No files found!")
             return
         
+        print("Ingesting documents (batched Delta Lake writes)...")
         summary = pipeline.ingest_batch(documents)
         pipeline.print_summary(summary)
     

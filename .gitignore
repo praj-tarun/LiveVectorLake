@@ -52,16 +52,9 @@ cdc_hash_store.json
 cdc_metadata.json
 lakehouse/
 
-# Benchmark data and results
+# Benchmark data (generated, not committed)
 data/benchmark_corpus/
-tests/results/*.json
-!tests/results/.gitkeep
 
-# Old benchmark files (replaced by benchmark_1-4)
-tests/benchmark_time_to_live.py
-tests/benchmark_cdc_efficiency.py
-tests/benchmark_temporal_queries.py
-tests/benchmark_suite.py
 
 # Temporary files
 *.tmp
@@ -70,8 +63,14 @@ COMMIT_MESSAGE.txt
 
 # Internal project documents (not for public repo)
 docs/PROJECT_INTERNAL.md
-docs/CONTEXT.md
 docs/STYLE_GUIDE.md
+docs/sample research papers/
+docs/BENCHMARK_STRATEGY_FINAL.md
+
+# Personal and temporary documentation
+*VERIFICATION*.md
+*CHANGES*.md
+*TEST_RESULTS*.md
 
 # Docker volumes
 volumes/

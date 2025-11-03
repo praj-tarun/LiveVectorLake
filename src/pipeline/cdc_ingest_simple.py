@@ -41,16 +41,18 @@ class CDCIngestionPipeline:
         old_hashes = self.hash_store.get_hashes(doc_id)
         cdc_result = compare_chunks(chunk_tuples, old_hashes)
         
-        # Step 3: Process added chunks
+        # Step 3: Process added chunks with position
         added_records = []
         added_texts = []
         added_hashes = []
+        added_positions = []
         
         timestamp = int(datetime.utcnow().timestamp())
         
-        for idx, (chunk_hash, chunk_content) in enumerate(cdc_result['added']):
+        for chunk_hash, chunk_content, position in cdc_result['added']:
             added_texts.append(chunk_content)
             added_hashes.append(chunk_hash)
+            added_positions.append(position)
         
         # Step 4: Embed new chunks
         delta_records = []
@@ -64,15 +66,16 @@ class CDCIngestionPipeline:
             valid_from_list = [timestamp] * len(added_hashes)
             valid_to_list = [0] * len(added_hashes)  # 0 means NULL/active
             
-            self.milvus.insert(added_hashes, vectors, statuses, doc_ids, valid_from_list, valid_to_list, added_texts)
+            self.milvus.insert(added_hashes, vectors, statuses, doc_ids, added_positions, valid_from_list, valid_to_list, added_texts)
             
             # Step 6: Insert into Delta Lake (cold tier - complete history)
-            for idx, (chunk_hash, text_content, vector) in enumerate(zip(added_hashes, added_texts, vectors)):
+            for chunk_hash, text_content, vector, position in zip(added_hashes, added_texts, vectors, added_positions):
                 delta_records.append({
                     'chunk_id': chunk_hash,
                     'content_text': text_content,
                     'content_vector': vector,
                     'doc_id': doc_id,
+                    'position': position,
                     'valid_from': timestamp,
                     'valid_to': 0,  # 0 means NULL/active
                     'status': 'active',
@@ -80,18 +83,27 @@ class CDCIngestionPipeline:
                     'source': source  # Track source
                 })
         
-        # Step 7: Handle deleted chunks (mark superseded in Delta Lake)
-        for chunk_hash in cdc_result['deleted']:
-            delta_records.append({
-                'chunk_id': chunk_hash,
-                'content_text': '',
-                'content_vector': [0.0] * 384,  # Placeholder vector
-                'doc_id': doc_id,
-                'valid_from': 0,
-                'valid_to': timestamp,
-                'status': 'superseded',
-                'version_number': 0
-            })
+        # Step 7: Handle deleted chunks
+        if cdc_result['deleted']:
+            # Delete from Milvus (hot tier)
+            self.milvus.connect()
+            self.milvus.collection.delete(f"chunk_id in {list(cdc_result['deleted'])}")
+            self.milvus.collection.flush()
+            
+            # Mark superseded in Delta Lake (cold tier)
+            for chunk_hash in cdc_result['deleted']:
+                delta_records.append({
+                    'chunk_id': chunk_hash,
+                    'content_text': '',
+                    'content_vector': [0.0] * 384,
+                    'doc_id': doc_id,
+                    'position': 0,
+                    'valid_from': 0,
+                    'valid_to': timestamp,
+                    'status': 'superseded',
+                    'version_number': 0,
+                    'source': source
+                })
         
         # Step 8: Write to Delta Lake
         if delta_records:
@@ -109,7 +121,7 @@ class CDCIngestionPipeline:
         return summary
     
     def ingest_batch(self, documents: List[Dict]) -> Dict:
-        """Ingest multiple documents"""
+        """Ingest multiple documents with batched Delta Lake writes"""
         batch_summary = {
             'total_docs': len(documents),
             'total_added': 0,
@@ -118,14 +130,95 @@ class CDCIngestionPipeline:
             'doc_summaries': []
         }
         
+        all_delta_records = []
+        
         for doc in documents:
-            summary = self.ingest_document(doc['doc_id'], doc['content'])
+            # Process without Delta Lake write
+            summary = self._ingest_document_no_delta(doc['doc_id'], doc['content'])
             batch_summary['total_added'] += summary['added']
             batch_summary['total_deleted'] += summary['deleted']
             batch_summary['total_unchanged'] += summary['unchanged']
             batch_summary['doc_summaries'].append(summary)
+            
+            if 'delta_records' in summary:
+                all_delta_records.extend(summary['delta_records'])
+        
+        # Single Delta Lake write for all documents
+        if all_delta_records:
+            self.delta_store.write_chunks(all_delta_records)
         
         return batch_summary
+    
+    def _ingest_document_no_delta(self, doc_id: str, content: str, source: str = "file") -> Dict:
+        """Ingest document without Delta Lake write (for batching)"""
+        text_chunks = chunk_text(content)
+        chunk_tuples = [(hash_chunk(chunk), chunk) for chunk in text_chunks]
+        old_hashes = self.hash_store.get_hashes(doc_id)
+        cdc_result = compare_chunks(chunk_tuples, old_hashes)
+        
+        added_texts = []
+        added_hashes = []
+        added_positions = []
+        timestamp = int(datetime.utcnow().timestamp())
+        
+        for chunk_hash, chunk_content, position in cdc_result['added']:
+            added_texts.append(chunk_content)
+            added_hashes.append(chunk_hash)
+            added_positions.append(position)
+        
+        delta_records = []
+        if added_texts:
+            vectors = self.model.encode(added_texts).tolist()
+            self.milvus.connect()
+            doc_ids = [doc_id] * len(added_hashes)
+            statuses = ['active'] * len(added_hashes)
+            valid_from_list = [timestamp] * len(added_hashes)
+            valid_to_list = [0] * len(added_hashes)
+            
+            self.milvus.insert(added_hashes, vectors, statuses, doc_ids, added_positions, valid_from_list, valid_to_list, added_texts)
+            
+            for chunk_hash, text_content, vector, position in zip(added_hashes, added_texts, vectors, added_positions):
+                delta_records.append({
+                    'chunk_id': chunk_hash,
+                    'content_text': text_content,
+                    'content_vector': vector,
+                    'doc_id': doc_id,
+                    'position': position,
+                    'valid_from': timestamp,
+                    'valid_to': 0,
+                    'status': 'active',
+                    'version_number': 1,
+                    'source': source
+                })
+        
+        if cdc_result['deleted']:
+            self.milvus.connect()
+            self.milvus.collection.delete(f"chunk_id in {list(cdc_result['deleted'])}")
+            self.milvus.collection.flush()
+            
+            for chunk_hash in cdc_result['deleted']:
+                delta_records.append({
+                    'chunk_id': chunk_hash,
+                    'content_text': '',
+                    'content_vector': [0.0] * 384,
+                    'doc_id': doc_id,
+                    'position': 0,
+                    'valid_from': 0,
+                    'valid_to': timestamp,
+                    'status': 'superseded',
+                    'version_number': 0,
+                    'source': source
+                })
+        
+        new_hash_set = {h for h, _ in chunk_tuples}
+        self.hash_store.update_hashes(doc_id, new_hash_set)
+        
+        summary = cdc_result['summary']
+        summary['doc_id'] = doc_id
+        summary['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+        summary['delta_records'] = delta_records
+        
+        return summary
     
     def print_summary(self, summary: Dict):
         """Print CDC summary in readable format"""
