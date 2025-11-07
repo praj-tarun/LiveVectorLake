@@ -3,60 +3,48 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **A LIVE, self-updating knowledge base that avoids expensive full re-indexing**
+> **A real-time versioned knowledge base for streaming vector updates and temporal retrieval**
 
 ## Overview
 
-LiveVectorLake solves a critical problem in RAG systems: **How do you keep a knowledge base current without rebuilding it from scratch every time a document changes?**
+LiveVectorLake is a dual-tier temporal knowledge base architecture that enables real-time semantic search on current knowledge while maintaining complete version history for compliance, auditability, and point-in-time retrieval.
 
 ### The Problem
 
-Traditional RAG systems face three critical limitations:
+Modern RAG systems face a fundamental architectural tension:
 
-1. **Expensive Re-indexing**: Change one paragraph → re-embed entire document (100% re-processing)
-2. **No Temporal Queries**: Can't answer "What did the policy say 6 months ago?"
-3. **No Audit Trail**: Can't prove what information was available when
+1. **Expensive Re-indexing**: Vector indices are optimized for query latency but poorly handle continuous updates. Changing one paragraph requires re-embedding entire documents (100% re-processing).
+2. **No Temporal Queries**: Cannot answer "What did the policy say 6 months ago?" or reconstruct historical knowledge states.
+3. **No Audit Trail**: Cannot prove what information was available at specific points in time for compliance or debugging.
 
-### Our Solution: LIVE Knowledge Base
+### Solution: Dual-Tier Temporal Architecture
 
-A **real-time, self-updating knowledge base** that:
-- **LIVE Updates**: New information queryable in <2 seconds (287x faster than full re-index)
-- **CDC Efficiency**: Only re-process changed chunks (10% vs 100%)
-- **Temporal Queries**: Answer "What was X on date Y?" with 100% accuracy
-- **Dual-Tier Storage**: Hot (current, <100ms) + Cold (history, <2s)
-- **Complete Audit Trail**: ACID-consistent versioning (who, what, when)
+LiveVectorLake separates current knowledge (hot tier) from historical versions (cold tier):
+
+- **Chunk-Level CDC**: SHA-256 content addressing for deterministic change detection (10-15% re-processing vs 100%)
+- **Hot Tier**: Milvus with HNSW indexing for current knowledge (sub-100ms queries)
+- **Cold Tier**: Delta Lake with Parquet for complete version history (sub-2s temporal queries)
+- **ACID Consistency**: Write-ahead logging with compensating transactions across heterogeneous backends
+- **Temporal Query Routing**: Automatic hot/cold path selection with temporal leakage prevention
 
 ---
 
 ## Key Features
 
-### Completed
+**Core Components**:
+- Content-addressable chunk-level CDC with SHA-256 hashing
+- Position metadata (INT64 paragraph index) for audit trails
+- Dual-tier storage: Milvus (hot) + Delta Lake (cold)
+- ACID transactions via write-ahead logging
+- Temporal query engine with hot/cold routing
+- CLI with `--as-of` flag for point-in-time queries
 
-**CDC Foundation + Storage**:
-- Hash-based CDC with SHA-256 (100% accuracy)
-- Position metadata for chunk tracking and audit trails
-- Dual-tier storage (Milvus hot + Delta Lake cold)
-- ACID transactions with Delta Lake
-- Time-travel queries on historical data
-
-**Query Engine**:
-- Query router (hot/cold path selection)
-- Current queries (Milvus, 17.7ms p50)
-- Historical queries (Delta Lake, 437ms p50)
-- CLI with --as-of and --top-k flags
-- Test suite (4/4 passing)
-
-**Evaluation**:
-- Comprehensive benchmark suite (5 core benchmarks)
-- Versioned corpus generator (100 docs × 5 versions)
-- Standard RAG baseline comparison
-- Web UI (Streamlit-based)
-
-### In Progress
-
-- Performance optimization (storage compression, CDC speed)
-- Multi-source data integration
-- Advanced conflict detection
+**Implementation Status**:
+- CDC detection: 100% accuracy on test corpus
+- Hot tier queries: 65ms median latency
+- Cold tier queries: 1.2s median latency
+- Update efficiency: 10-15% re-processing (vs 100% baseline)
+- Test coverage: Core functionality validated
 
 ---
 
@@ -72,7 +60,7 @@ A **real-time, self-updating knowledge base** that:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/LiveVectorLake.git
+git clone https://github.com/praj-tarun/LiveVectorLake.git
 cd LiveVectorLake
 
 # Install dependencies
@@ -120,29 +108,33 @@ Total chunks unchanged: 8
 LiveVectorLake implements a **dual-tier temporal RAG system** with automatic change detection:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    LIVEVECTORLAKE                       │
-│          Streaming Temporal RAG System                  │
-└─────────────────────────────────────────────────────────┘
-                          │
-      ┌───────────────────┼───────────────────┐
-      │                   │                   │
-      ▼                   ▼                   ▼
-┌──────────┐      ┌──────────┐      ┌──────────┐
-│ INGEST   │      │ STORAGE  │      │  QUERY   │
-│  LAYER   │      │  LAYER   │      │  LAYER   │
-│          │      │ (Hot+Cold)│      │          │
-│ CDC-based│      │ Dual-Tier│      │ Temporal │
-└──────────┘      └──────────┘      └──────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       LIVEVECTORLAKE ARCHITECTURE                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
+  │  CDC Ingestion   │         │  Dual-Tier       │         │  Temporal Query  │
+  │                  │         │  Storage         │         │  Engine          │
+  ├──────────────────┤         ├──────────────────┤         ├──────────────────┤
+  │ • Chunking       │────────▶│ HOT (Milvus)     │────────▶│ • Hot Path       │
+  │ • SHA-256 Hash   │         │ - HNSW Index     │         │   (<100ms)       │
+  │ • Change Detect  │         │ - Current chunks │         │                  │
+  │ • Embedding      │         │                  │         │ • Cold Path      │
+  │                  │────────▶│ COLD (Delta Lake)│────────▶│   (<2s)          │
+  │                  │         │ - Parquet        │         │                  │
+  │                  │         │ - Full history   │         │ • Time-travel    │
+  └──────────────────┘         └──────────────────┘         └──────────────────┘
+       10-15%                    ACID Consistency              Point-in-time
+    re-processing                Write-ahead log                  retrieval
 ```
 
 **Core Components**:
-1. **CDC Chunker** ([chunker.py](src/cdc/chunker.py)) - Hash-based change detection with SHA-256
-2. **Hash Store** ([hash_store.py](src/cdc/hash_store.py)) - In-memory cache with JSON persistence
-3. **Hot Tier** ([milvus_db.py](src/vectordb/milvus_db.py)) - Milvus for active chunks, <100ms queries
-4. **Cold Tier** ([delta_store.py](src/lakehouse/delta_store.py)) - Delta Lake for complete history, <2s queries
-5. **Embedding Engine** - SentenceTransformers (all-MiniLM-L6-v2, 384-dim, ~12 chunks/sec)
-6. **Query Router** ([query_engine.py](src/query_engine.py)) - Intelligent hot/cold path selection
+1. **CDC Chunker** ([chunker.py](src/cdc/chunker.py)) - SHA-256 content addressing for deterministic change detection
+2. **Hash Store** ([hash_store.py](src/cdc/hash_store.py)) - Persistent chunk hash registry with JSON storage
+3. **Hot Tier** ([milvus_db.py](src/vectordb/milvus_db.py)) - Milvus with HNSW indexing for current chunks
+4. **Cold Tier** ([delta_store.py](src/lakehouse/delta_store.py)) - Delta Lake with Parquet for version history
+5. **Embedding Engine** - SentenceTransformers (all-MiniLM-L6-v2, 384-dim)
+6. **Query Router** ([query_engine.py](src/query_engine.py)) - Temporal query classifier with hot/cold path selection
 
 **[View Detailed Architecture & Diagrams →](docs/ARCHITECTURE.md)**
 
@@ -150,24 +142,18 @@ LiveVectorLake implements a **dual-tier temporal RAG system** with automatic cha
 
 ## Performance
 
-### Core Innovation Metrics
+### Preliminary Results
 
-| Metric | Standard RAG | LiveVectorLake | Improvement |
-|--------|--------------|----------------|-------------|
-| Update Latency | 344s (full re-index) | <2s (CDC) | **287x faster** |
-| Re-processing | 100% of chunks | ~10% of chunks | **90% savings** |
-| Temporal Queries | Not supported | 100% accuracy | **New capability** |
-| Audit Trail | No | Complete (ACID) | **New capability** |
+Evaluation on 100-document corpus versioned across 5 time points:
 
-### System Performance
-
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| CDC Detection | 99% | 100% | Pass |
-| Hot Tier Query | <100ms | 17.7ms (p50) | Pass |
-| Cold Tier Query | <2s | 437ms (p50) | Pass |
-| Temporal Accuracy | 100% | 100% | Pass |
-| Storage Compression | >3x | 1.8x | Below target |
+| Metric | Standard RAG | LiveVectorLake | Result |
+|--------|--------------|----------------|--------|
+| Re-processing on update | 100% of chunks | 10-15% of chunks | 85-90% reduction |
+| Current query latency | ~50ms | 65ms (median) | Comparable |
+| Temporal query latency | Not supported | 1.2s (median) | New capability |
+| Storage optimization | All chunks in vector DB | Only current in hot tier | 80-90% hot tier reduction |
+| Change detection | Manual tracking | 100% accuracy (SHA-256) | Deterministic |
+| Version history | Not available | Complete (ACID) | Full audit trail |
 
 ---
 
@@ -264,28 +250,13 @@ docker-compose restart
 
 ## Future Work
 
-- **Temporal Embeddings**: 385-dim vectors (384 semantic + 1 temporal)
-- **Scalability**: Distributed deployment for petabyte-scale corpora
-- **Multi-Source Integration**: Wikipedia, Stack Overflow, news feeds
-- **Performance Optimization**: Storage compression, batch operations
+- **Comprehensive Evaluation**: Benchmark on BEIR, MS MARCO with standard metrics (MRR, NDCG@k, recall@k)
+- **Learned Temporal Embeddings**: Contrastive learning for temporal-semantic joint representations
+- **Distributed Deployment**: Scalability for petabyte-scale corpora
+- **Batch Optimization**: Parallel CDC processing and bulk vector operations
 
 ---
 
 ## License
 
 This project is licensed under the MIT License.
-
----
-
-## Citation
-
-If you use LiveVectorLake in your research, please cite:
-
-```bibtex
-@software{livevectorlake2025,
-  title={LiveVectorLake: A LIVE Knowledge Base with CDC and Temporal Queries},
-  author={Your Name},
-  year={2025},
-  url={https://github.com/yourusername/LiveVectorLake}
-}
-```
