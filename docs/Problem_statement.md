@@ -134,12 +134,6 @@ To validate these research problems **generically** (not domain-specific):
 - **Why**: Academic corpus, explicit versioning, citation graphs
 - **Validates**: Temporal IR (Problem 2), Compliance-grade tracking (Problem 5)
 
-### **5. Simulated Multi-Source Streams**
-- **Source**: Generate synthetic data (GPT-4) simulating conflicting sources
-- **Volume**: Configurable (1K-100K events/day)
-- **Why**: Control over conflict patterns, versioning scenarios, reproducibility
-- **Validates**: All 5 problem statements, ablation studies
-
 ***
 
 ## **Implementation Strategy**

@@ -130,13 +130,9 @@ How to retrieve semantically relevant content while respecting temporal validity
 
 **Purpose**: Capture content from diverse sources and detect changes with minimal latency
 
-**Multi-Source Connectors**:
+**Data Connectors**:
 
-- Structured: Relational databases, data warehouses (SQL, NoSQL)
-    
-- Semi-structured: APIs (REST, GraphQL), message queues (Kafka, Pulsar)
-    
-- Unstructured: Documents (PDF, Word, HTML), emails, wikis
+- Document sources: PDF, Word, HTML, text files
     
 
 **Semantic Chunker**:
@@ -335,35 +331,7 @@ text
 
 ## **3.2.5 Data Quality & Consistency Engine**
 
-**Purpose**: Ensure trustworthy knowledge in multi-source, rapidly evolving environments
-
-**Conflict Detector**:
-
-_Detection Strategy_:
-
-text
-
-`For each new chunk c:   1. Find semantically similar existing chunks:       similar = vector_search(c.vector, threshold=0.9)  2. For each s in similar:       If content_differs(c, s) AND same_topic(c, s):         → Flag as potential conflict  3. Store conflict record:       {chunk_a: c, chunk_b: s, similarity: score, status: PENDING}`
-
-_Conflict Types_:
-
-- **Direct Contradiction**: Same entity/topic, opposite claims
-    
-- **Temporal Overlap**: Multiple "current" versions for same content
-    
-- **Source Authority**: Lower-priority source updates higher-priority content
-    
-
-**Resolution Strategies**:
-
-1. **Source Hierarchy**: Configurable authority ranking (e.g., official regulation > internal policy > draft)
-    
-2. **Temporal Precedence**: Most recent update wins (with conflict logging)
-    
-3. **Human Review**: Route high-confidence conflicts to moderation queue
-    
-4. **Multi-Version Preservation**: Keep both versions with source attribution for user choice
-    
+**Purpose**: Ensure trustworthy knowledge in rapidly evolving environments
 
 **Quality Validator**:
 
@@ -397,7 +365,7 @@ _Event Types_:
 
 text
 
-`Ingestion Events: {   "timestamp": "2025-10-21T10:30:15Z",  "event": "chunk_created",  "chunk_id": "abc123...",  "source_id": "policy_doc_v2.pdf",  "change_type": "UPDATE",  "parent_chunk_id": "xyz789..." } Query Events: {   "timestamp": "2025-10-21T10:35:42Z",  "event": "query_executed",  "query_text": "What is return policy?",  "temporal_intent": "CURRENT",  "retrieval_path": "HOT",  "results_count": 5,  "latency_ms": 87,  "user_id": "analyst@company.com" } Conflict Events: {   "timestamp": "2025-10-21T10:32:00Z",  "event": "conflict_detected",  "chunk_a": "abc123...",  "chunk_b": "def456...",  "similarity": 0.94,  "resolution": "SOURCE_HIERARCHY",  "winner": "abc123..." }`
+`Ingestion Events: {   "timestamp": "2025-10-21T10:30:15Z",  "event": "chunk_created",  "chunk_id": "abc123...",  "source_id": "policy_doc_v2.pdf",  "change_type": "UPDATE",  "parent_chunk_id": "xyz789..." } Query Events: {   "timestamp": "2025-10-21T10:35:42Z",  "event": "query_executed",  "query_text": "What is return policy?",  "temporal_intent": "CURRENT",  "retrieval_path": "HOT",  "results_count": 5,  "latency_ms": 87,  "user_id": "analyst@company.com" }`
 
 **Performance Metrics**:
 
@@ -420,7 +388,7 @@ _Alerting_:
     
 - Query latency degradation (p95 >1s)
     
-- Conflict detection rate spike (>10% of ingestions)
+
     
 - Storage approaching capacity limits
     
@@ -431,7 +399,7 @@ _Compliance Reporting_:
 
 text
 
-`For regulatory request "Provide knowledge audit for Q2 2024":   1. Query: SELECT * FROM chunks WHERE created_at BETWEEN 2024-04-01 AND 2024-06-30  2. Generate report:     - Total changes: 1,247     - Sources: [system_A (45%), system_B (32%), manual_updates (23%)]     - Change types: [INSERT: 892, UPDATE: 310, DELETE: 45]     - Top modified content: [policy_X (23 versions), regulation_Y (18 versions)]     - Conflict resolution: [12 conflicts, 10 auto-resolved, 2 human-reviewed]  3. Export: PDF/CSV with full lineage for auditor review`
+`For regulatory request "Provide knowledge audit for Q2 2024":   1. Query: SELECT * FROM chunks WHERE created_at BETWEEN 2024-04-01 AND 2024-06-30  2. Generate report:     - Total changes: 1,247     - Sources: [document_A (45%), document_B (32%), manual_updates (23%)]     - Change types: [INSERT: 892, UPDATE: 310, DELETE: 45]     - Top modified content: [policy_X (23 versions), regulation_Y (18 versions)]  3. Export: PDF/CSV with full lineage for auditor review`
 
 _Provenance Tracking_:
 
@@ -561,25 +529,17 @@ text
 
 ## **Week 3: Real-Time Ingestion and Data Quality**
 
-**Objective**: Production-ready ingestion with conflict detection
+**Objective**: Production-ready ingestion
 
 **Enhancements**:
 
-1. Streaming ingestion via Kafka (or file watcher for simplicity)
+1. Batch ingestion with file monitoring
     
     - Continuous monitoring of document folder
         
     - Automatic CDC trigger on new/modified files
         
-2. Conflict detection implementation:
-    
-    - After embedding, search for similar existing chunks (threshold=0.9)
-        
-    - If similar+different content: flag conflict
-        
-    - Simple resolution: timestamp precedence (most recent wins)
-        
-3. Version graph visualization:
+2. Version graph visualization:
     
     - Build DAG of chunk lineage
         
@@ -589,11 +549,11 @@ text
     
     - Structured JSON logging to file
         
-    - Events: ingestion, queries, conflicts
+    - Events: ingestion, queries
         
 5. Basic dashboard:
     
-    - Streamlit app showing: ingestion stats, query latency, conflict count
+    - Streamlit app showing: ingestion stats, query latency
         
 
 **Load Testing**:
@@ -607,7 +567,7 @@ text
 
 - Concurrent updates: Multiple documents changing simultaneously → verify consistency
     
-- Conflict injection: Insert contradictory versions → verify detection and logging
+
     
 
 **Deliverable**: Production-hardened pipeline with observability
@@ -642,7 +602,7 @@ text
             
 2. **Failure Injection Testing**:
     
-    - Scenarios: Vector DB connection lost, lakehouse write failure, concurrent conflict
+    - Scenarios: Vector DB connection lost, lakehouse write failure
         
     - Verify: Rollback mechanisms work, no data loss, recovery time <30s
         
@@ -713,7 +673,7 @@ text
 
 -  Comparative retrieval (timeline of changes)
     
--  Conflict detection and resolution
+
     
 -  Version graph visualization
     
@@ -747,7 +707,7 @@ text
 ||Historical query latency (p50/p95)|<2s / <5s|
 |**Correctness**|Version retrieval accuracy|100%|
 ||Temporal predicate correctness|100%|
-||Conflict detection recall|>95%|
+
 |**Consistency**|ACID violation rate|0%|
 ||Cross-tier sync lag|<2s|
 |**Audit**|Operation logging coverage|100%|
@@ -772,27 +732,16 @@ text
 - Success: 100% accuracy, all queries <2s latency
     
 
-**Scenario 2: Multi-Source Conflict Resolution**
+**Scenario 2: High-Volume Batch Processing**
 
-- Setup: Ingest contradictory information from 3 sources (federal regulation, state law, internal policy)
-    
-- Inject conflicts: Same topic, different claim, overlapping timestamps
-    
-- Measure: Conflict detection rate (should flag 100%), resolution correctness (should apply authority hierarchy)
-    
-- Success: All conflicts detected and logged, higher-authority source wins
-    
-
-**Scenario 3: High-Volume Streaming**
-
-- Setup: Stream 1000 documents with updates at 50 docs/sec
+- Setup: Process 1000 documents with updates in batches
     
 - Measure: Ingestion lag (time from source update to queryable), system resource utilization
     
-- Success: Lag <1s sustained over 30 minutes, no errors
+- Success: Processing completes successfully, no errors
     
 
-**Scenario 4: Failure Recovery**
+**Scenario 3: Failure Recovery**
 
 - Setup: Inject failures (kill vector DB mid-write, simulate lakehouse unavailability)
     
@@ -902,7 +851,7 @@ text
 
 **2. Synchronous Processing**: Ingestion is synchronous—batch processing or async workers would improve throughput for high-volume scenarios
 
-**3. Simple Conflict Resolution**: Authority hierarchy is manually configured—ML-based conflict resolution (learning from historical resolutions) would reduce manual intervention
+
 
 **4. Text-Only**: Current implementation handles text chunks—extension to images, videos, structured tables requires multi-modal embedding and versioning strategies
 
@@ -910,47 +859,34 @@ text
 
 ## 7.2 Future Research Directions
 
-**1. Temporal Knowledge Graph Reasoning**
+**1. Temporal Embeddings in Vector Space**
+
+- Embed time as additional vector dimension: 385-dim (384 semantic + 1 temporal)
+    
+- Unified semantic-temporal similarity: single vector search instead of filter-then-search
+    
+- Enables soft temporal boundaries with natural recency bias
+    
+- Research contribution: First temporal RAG with time embedded in vector space
+    
+
+**2. Temporal Knowledge Graph Reasoning**
 
 - Extend from chunk versioning to entity-relationship versioning
     
 - Enable queries like "How did the relationship between entity A and entity B evolve?"
     
-- Integration with temporal knowledge graph embeddings for cross-entity temporal reasoning
-    
 
-**2. Predictive Version Management**
+**3. Semantic Change Detection**
 
-- ML models to predict which content will change soon (based on historical patterns)
-    
-- Proactive caching, pre-computation of version diffs
-    
-- Anomaly detection: Flag unusual version patterns (e.g., rapid oscillation suggesting incorrect source)
-    
-
-**3. Federated LiveVectorLake**
-
-- Multi-organization knowledge sharing with privacy-preserving protocols
-    
-- Differential privacy for shared versioned knowledge
-    
-- Blockchain-based audit trails for cross-organization trust
-    
-
-**4. Semantic Differencing**
-
-- Beyond text diffs: Semantic change detection (meaning shifts without word changes)
+- Detect meaning shifts without word changes using embedding drift analysis
     
 - Explainable version transitions: "Version 2 added information about X, removed constraint Y"
     
-- Change summarization: Automatic generation of changelogs from version diffs
-    
 
-**5. Adaptive Tiering**
+**4. Adaptive Tiering with Query Pattern Learning**
 
 - ML-based hot/warm/cold tier migration policies
-    
-- Learn from query patterns: frequently accessed historical data migrates to warm tier
     
 - Cost-performance optimization: Minimize storage cost subject to latency SLA
     
@@ -973,7 +909,7 @@ Key sources integrated throughout:
 
 - Version-aware RAG systems and requirements:[arxiv+1](https://arxiv.org/html/2505.07553v1)​
     
-- Temporal information retrieval foundations:[wikipedia+3](https://en.wikipedia.org/wiki/Temporal_information_retrieval)​
+- Temporal information retrieval foundations​
     
 - Enterprise knowledge management practices:[knowmax+2](https://knowmax.ai/blog/knowledge-base-metrics/)​
     
@@ -994,7 +930,7 @@ Key sources integrated throughout:
 2. [https://arxiv.org/abs/2510.13590](https://arxiv.org/abs/2510.13590)
 3. [https://arxiv.org/html/2505.20243v2](https://arxiv.org/html/2505.20243v2)
 4. [https://www.proprofskb.com/blog/enterprise-knowledge-management/](https://www.proprofskb.com/blog/enterprise-knowledge-management/)
-5. [https://en.wikipedia.org/wiki/Temporal_information_retrieval](https://en.wikipedia.org/wiki/Temporal_information_retrieval)
+
 6. [https://ieeexplore.ieee.org/document/8187208/](https://ieeexplore.ieee.org/document/8187208/)
 7. [https://www.compuvate.com/how-retrieval-augmented-generation-rag-systems-transform-enterprise-knowledge-management-in-2025/](https://www.compuvate.com/how-retrieval-augmented-generation-rag-systems-transform-enterprise-knowledge-management-in-2025/)
 8. [https://milvus.io/ai-quick-reference/what-are-best-practices-for-versioning-indexed-documents-and-vectors](https://milvus.io/ai-quick-reference/what-are-best-practices-for-versioning-indexed-documents-and-vectors)

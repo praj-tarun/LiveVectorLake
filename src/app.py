@@ -128,36 +128,12 @@ if page == "Query":
 elif page == "Ingest":
     st.header("Document Ingestion")
     
-    # Source selection
-    source_type = st.radio(
-        "Source Type",
-        ["File Upload", "Wikipedia"],
-        horizontal=True
+    # File upload
+    uploaded_file = st.file_uploader(
+        "Upload document",
+        type=['txt'],
+        help="Upload a text file to ingest into the knowledge base"
     )
-    
-    if source_type == "File Upload":
-        # File upload
-        uploaded_file = st.file_uploader(
-            "Upload document",
-            type=['txt'],
-            help="Upload a text file to ingest into the knowledge base"
-        )
-        doc_source = None
-    else:
-        # Wikipedia topic
-        wiki_topic = st.text_input(
-            "Wikipedia Topic",
-            placeholder="artificial intelligence",
-            help="Fetch Wikipedia articles on this topic"
-        )
-        wiki_count = st.number_input(
-            "Number of articles",
-            min_value=1,
-            max_value=5,
-            value=3
-        )
-        uploaded_file = None
-        doc_source = "wikipedia"
     
     # Reset option
     reset_collection = st.checkbox(
@@ -167,10 +143,8 @@ elif page == "Ingest":
     
     # Ingest button
     if st.button("Ingest", type="primary"):
-        if source_type == "File Upload" and not uploaded_file:
+        if not uploaded_file:
             st.warning("Please upload a file")
-        elif source_type == "Wikipedia" and not wiki_topic:
-            st.warning("Please enter a Wikipedia topic")
         else:
             with st.spinner("Ingesting document..."):
                 try:
@@ -178,54 +152,21 @@ elif page == "Ingest":
                     pipeline = CDCIngestionPipeline(reset_milvus=reset_collection)
                     start_time = time.time()
                     
-                    if source_type == "File Upload":
-                        # Read file content
-                        content = uploaded_file.read().decode('utf-8')
-                        doc_id = uploaded_file.name.replace('.txt', '')
-                        
-                        # Ingest single document
-                        summary = pipeline.ingest_document(doc_id, content, source="file")
-                        ingest_time = time.time() - start_time
-                        
-                        # Store in history
-                        st.session_state.ingestion_history.append({
-                            'doc_id': doc_id,
-                            'timestamp': datetime.now(),
-                            'summary': summary,
-                            'time': ingest_time
-                        })
-                    else:
-                        # Fetch from Wikipedia
-                        from sources.wikipedia_connector import WikipediaConnector
-                        connector = WikipediaConnector()
-                        articles = connector.fetch_articles_by_topic(wiki_topic, count=wiki_count)
-                        
-                        if not articles:
-                            st.error(f"No Wikipedia articles found for '{wiki_topic}'")
-                        else:
-                            # Ingest all articles
-                            total_summary = {'added': 0, 'deleted': 0, 'unchanged': 0}
-                            
-                            for article in articles:
-                                summary = pipeline.ingest_document(
-                                    article['doc_id'],
-                                    article['content'],
-                                    source="wikipedia"
-                                )
-                                total_summary['added'] += summary.get('added', 0)
-                                total_summary['deleted'] += summary.get('deleted', 0)
-                                total_summary['unchanged'] += summary.get('unchanged', 0)
-                                
-                                # Store in history
-                                st.session_state.ingestion_history.append({
-                                    'doc_id': article['doc_id'],
-                                    'timestamp': datetime.now(),
-                                    'summary': summary,
-                                    'time': 0
-                                })
-                            
-                            summary = total_summary
-                            ingest_time = time.time() - start_time
+                    # Read file content
+                    content = uploaded_file.read().decode('utf-8')
+                    doc_id = uploaded_file.name.replace('.txt', '')
+                    
+                    # Ingest single document
+                    summary = pipeline.ingest_document(doc_id, content, source="file")
+                    ingest_time = time.time() - start_time
+                    
+                    # Store in history
+                    st.session_state.ingestion_history.append({
+                        'doc_id': doc_id,
+                        'timestamp': datetime.now(),
+                        'summary': summary,
+                        'time': ingest_time
+                    })
                     
                     # Display summary
                     st.success(f"Ingestion completed in {ingest_time:.2f}s")

@@ -704,12 +704,7 @@ lakehouse/
 - Hot/cold path routing
 - LLM integration for answers
 
-### Phase 3: Multi-Source
-- Wikipedia stream connector
-- Conflict detection
-- Source reconciliation
-
-### Phase 4: Production
+### Phase 3: Production
 - Performance benchmarking
 - Distributed deployment
 - REST API

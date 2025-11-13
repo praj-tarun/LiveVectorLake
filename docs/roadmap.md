@@ -116,19 +116,7 @@ This roadmap outlines the phased development of LiveVectorLake, a LIVE knowledge
 
 ## Phase 4: Advanced Features (Planned)
 
-### 4.1 Multi-Source Integration
-**Objective**: Support multiple data sources with conflict detection.
-
-**Components**:
-- Wikipedia edit stream connector
-- Stack Overflow API integration
-- News feed aggregation
-- Cross-source conflict detection
-- Source provenance tracking
-
-**Status**: Planned
-
-### 4.2 Performance Optimization
+### 4.1 Performance Optimization
 **Objective**: Improve system throughput and efficiency.
 
 **Components**:
@@ -139,7 +127,7 @@ This roadmap outlines the phased development of LiveVectorLake, a LIVE knowledge
 
 **Status**: Planned
 
-### 4.3 Temporal Embeddings
+### 4.2 Temporal Embeddings
 **Objective**: Incorporate time as vector dimension.
 
 **Components**:
@@ -179,8 +167,6 @@ This roadmap outlines the phased development of LiveVectorLake, a LIVE knowledge
 ### Future Enhancements
 - Distributed deployment for scalability
 - GPU acceleration for embedding
-- Advanced conflict resolution strategies
-- Real-time streaming data sources
 - Enhanced audit trail visualization
 
 ## Documentation
