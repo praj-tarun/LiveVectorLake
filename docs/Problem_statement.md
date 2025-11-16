@@ -1,5 +1,14 @@
 # Research Problem Statements for LiveVectorLake
 
+## **Scope Clarification**
+
+**LiveVectorLake Focus**: We assume documents come from existing streaming sources (news APIs, Wikipedia edits, Stack Overflow, etc.). Our research addresses:
+- Efficient CDC-based ingestion (10-15% vs 100% re-processing)
+- Dual-tier storage architecture (hot/cold separation)
+- Temporal query support (current + historical)
+- ACID-consistent versioning
+---
+
 ## **Core Research Problem**
 
 > **"How can knowledge bases maintain temporal consistency, semantic accuracy, and audit compliance when continuously ingesting high-velocity, unstructured data streams—while supporting both real-time current queries and historical point-in-time retrieval?"**

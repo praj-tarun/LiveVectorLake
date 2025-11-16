@@ -1,5 +1,50 @@
 # LiveVectorLake Architecture
 
+## Data Source Assumptions
+
+### Scope Boundary
+
+LiveVectorLake is a **knowledge base ingestion and query system**. It assumes:
+
+**IN SCOPE**:
+- Document stream already exists (upsert operations)
+- Documents provided as: `(doc_id, content, timestamp)`
+- CDC detection, embedding, storage, and querying
+
+**OUT OF SCOPE**:
+- Building source connectors (SharePoint, Confluence, Wikipedia APIs)
+- Webhook configuration and API authentication
+- Message queue setup (Kafka, RabbitMQ)
+- Document format conversion (handled by separate parsers)
+
+### Prototype Implementation
+
+For demonstration, we **simulate** document streams using:
+- Local text files (`data/test_news/`)
+- CLI-based ingestion (`python src/cli.py ingest`)
+- Manual version creation (`test_news_v2/`)
+
+### Production Integration
+
+In production, LiveVectorLake receives documents from:
+- **Event streams**: Kafka topics, AWS Kinesis, Azure Event Hub
+- **Webhooks**: SharePoint, Confluence, Google Drive notifications
+- **Polling**: Scheduled sync from document management systems
+- **Direct API**: REST endpoint for document submission
+
+**Example integration**:
+```python
+# External system sends documents to LiveVectorLake
+for doc in kafka_consumer:
+    livevectorlake.ingest(
+        doc_id=doc['id'],
+        content=doc['text'],
+        timestamp=doc['modified_at']
+    )
+```
+
+---
+
 ## Overview
 
 LiveVectorLake implements a **dual-tier temporal RAG system** with automatic change detection (CDC) and complete version history.

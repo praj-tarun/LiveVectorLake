@@ -2,6 +2,18 @@
 
 ---
 
+## Scope Note
+
+**LiveVectorLake Focus**: This system assumes documents come from existing streaming sources (Kafka, webhooks, document management systems). Our research contributions are:
+- CDC-based ingestion with chunk-level change detection
+- Dual-tier storage architecture (hot/cold)
+- Temporal query support (current + historical)
+- ACID-consistent versioning across tiers
+
+**Prototype**: Simulates document streams using local files for demonstration and validation.
+
+---
+
 ## Executive Summary
 
 LiveVectorLake addresses the fundamental challenge of maintaining accurate, auditable, and temporally-aware knowledge bases for enterprise Retrieval-Augmented Generation (RAG) systems. As organizations increasingly rely on AI-driven decision support, the inability to track knowledge evolution, answer historical queries, and maintain compliance-grade audit trails represents a critical gap in current RAG architectures. This document presents a comprehensive system design that unifies real-time data ingestion, automatic change detection, persistent versioning, and hybrid storage—enabling both sub-second current queries and accurate point-in-time historical retrieval.

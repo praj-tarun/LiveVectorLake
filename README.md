@@ -9,6 +9,8 @@
 
 LiveVectorLake is a dual-tier temporal knowledge base architecture that enables real-time semantic search on current knowledge while maintaining complete version history for compliance, auditability, and point-in-time retrieval.
 
+**Scope**: LiveVectorLake assumes documents come from an existing stream (e.g., Kafka, webhooks, polling). We focus on CDC-based ingestion, dual-tier storage, and temporal queries. Source connectors (SharePoint, Confluence APIs) are out of scope. For demonstration, we simulate streams using local files.
+
 ### The Problem
 
 Modern RAG systems face a fundamental architectural tension:

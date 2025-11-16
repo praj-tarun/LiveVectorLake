@@ -1,5 +1,16 @@
 # Quick Start Guide
 
+## Scope Note
+
+**LiveVectorLake assumes documents come from an existing stream** (Kafka, webhooks, document management systems). We focus on:
+- CDC-based ingestion
+- Dual-tier storage (hot/cold)
+- Temporal queries
+
+**For this prototype**: We simulate document streams using local text files.
+
+---
+
 ## ✅ Phase 1: CDC Foundation + Cold Storage (Completed)
 
 **Implemented Features**:
