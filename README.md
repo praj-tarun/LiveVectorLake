@@ -72,7 +72,21 @@ pip install -r requirements.txt
 docker-compose up -d
 ```
 
-### Basic Usage
+### Demo (Streamlit UI)
+
+```bash
+# Generate security incident demo data
+python tests/generate_security_incident_data.py
+
+# Launch interactive demo
+python run_demo.py
+```
+
+The demo showcases a **Security Incident Monitoring Dashboard** with 4-hour incident response timeline across 6 time points (33 documents). Opens at http://localhost:8501.
+
+**[View Complete Demo Guide →](docs/DEMO_GUIDE.md)**
+
+### CLI Usage
 
 ```bash
 # Generate test data
@@ -161,8 +175,10 @@ Evaluation on 100-document corpus versioned across 5 time points:
 
 ## Documentation
 
+- **[Demo Guide](docs/DEMO_GUIDE.md)** - Complete demo walkthrough for MTech presentation
 - **[Architecture](docs/ARCHITECTURE.md)** - Detailed system design, diagrams, and data flows
 - **[Benchmarking Guide](tests/BENCHMARKS_README.md)** - How to run and interpret benchmarks
+- **[LLM Setup](docs/LLM_SETUP.md)** - LLM integration guide (Ollama, OpenAI, Groq)
 - **[Problem Statement](docs/Problem_statement.md)** - Research problems addressed
 - **[Project Document](docs/Project.md)** - Complete research proposal
 - **[Roadmap](docs/roadmap.md)** - Implementation phases and status
@@ -262,3 +278,27 @@ docker-compose restart
 ## License
 
 This project is licensed under the MIT License.
+
+# LiveVectorLake — Quickstart (scaffolding)
+
+This repo contains the LiveVectorLake prototype and initial production-demo scaffolding.
+
+Quickstart (local, development)
+1. Install Python deps (prefer virtualenv):
+   - pip install -r requirements.txt
+2. Start services:
+   - docker compose up -d
+   - This brings up Redis and Milvus for local development.
+3. Start API gateway (from repo root):
+   - uvicorn backend.api_gateway.main:app --reload --port 8000
+4. Publish a test stream event:
+   - POST /api/stream/publish (see backend/api_gateway/main.py)
+5. Run the benchmark harness (skeleton):
+   - python scripts/bench/run_bench.py
+
+Notes
+- The current prototype uses Milvus (hot) and a lightweight parquet-based pseudo-lakehouse for local experiments.
+- The scaffolding is intentionally minimal. After you confirm I will:
+  - wire the existing CDC and ingest pipeline into the services,
+  - implement Milvus client utilities and pseudo-lakehouse helpers,
+  - add structured logging and the full benchmark harness.

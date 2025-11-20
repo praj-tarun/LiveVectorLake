@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Details - LiveVectorLake</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0e27; color: #fff; padding: 20px; }
+        
+        header { text-align: center; padding: 20px 0; border-bottom: 2px solid #1e2749; margin-bottom: 30px; }
+        h1 { font-size: 2em; margin-bottom: 10px; }
+        
+        .container { max-width: 1400px; margin: 0 auto; }
+        .tier-section { background: #1e2749; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .tier-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #3b82f6; }
+        .tier-title { font-size: 1.5em; font-weight: bold; }
+        .tier-stats { display: flex; gap: 20px; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 1.8em; font-weight: bold; color: #3b82f6; }
+        .stat-label { font-size: 0.9em; color: #94a3b8; }
+        
+        .chunks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; max-height: 500px; overflow-y: auto; }
+        .chunk-card { background: #0a0e27; border: 1px solid #3b82f6; border-radius: 8px; padding: 15px; }
+        .chunk-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .chunk-id { font-weight: bold; color: #3b82f6; font-size: 0.9em; }
+        .chunk-status { padding: 2px 8px; border-radius: 4px; font-size: 0.8em; }
+        .status-active { background: #10b981; color: white; }
+        .status-superseded { background: #f59e0b; color: white; }
+        .status-deleted { background: #ef4444; color: white; }
+        .chunk-content { font-size: 0.85em; color: #cbd5e1; margin-top: 10px; line-height: 1.4; max-height: 100px; overflow: hidden; text-overflow: ellipsis; }
+        .chunk-meta { font-size: 0.75em; color: #64748b; margin-top: 8px; }
+        
+        .loading { text-align: center; padding: 40px; font-size: 1.2em; color: #94a3b8; }
+        .error { background: #ef4444; color: white; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0e27; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Storage Details</h1>
+            <p>Dual-Tier Architecture: Hot (Milvus) + Cold (Delta Lake)</p>
+        </header>
+        
+        <div class="tier-section">
+            <div class="tier-header">
+                <div class="tier-title">🔥 Hot Tier (Milvus)</div>
+                <div class="tier-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="hotCount">-</div>
+                        <div class="stat-label">Active Chunks</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="hotDocs">-</div>
+                        <div class="stat-label">Documents</div>
+                    </div>
+                </div>
+            </div>
+            <div id="hotChunks" class="loading">Loading hot tier data...</div>
+        </div>
+        
+        <div class="tier-section">
+            <div class="tier-header">
+                <div class="tier-title">❄️ Cold Tier (Delta Lake)</div>
+                <div class="tier-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="coldCount">-</div>
+                        <div class="stat-label">Total Chunks</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="coldDocs">-</div>
+                        <div class="stat-label">Documents</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="coldVersions">-</div>
+                        <div class="stat-label">Versions</div>
+                    </div>
+                </div>
+            </div>
+            <div id="coldChunks" class="loading">Loading cold tier data...</div>
+        </div>
+    </div>
+    
+    <script>
+        async function loadStorageData() {
+            try {
+                const response = await fetch('/api/storage');
+                const data = await response.json();
+                
+                // Update hot tier
+                document.getElementById('hotCount').textContent = data.hot_tier.total_chunks;
+                document.getElementById('hotDocs').textContent = data.hot_tier.unique_docs;
+                
+                const hotContainer = document.getElementById('hotChunks');
+                if (data.hot_tier.chunks.length === 0) {
+                    hotContainer.innerHTML = '<div class="loading">No chunks in hot tier</div>';
+                } else {
+                    hotContainer.innerHTML = '';
+                    hotContainer.className = 'chunks-grid';
+                    data.hot_tier.chunks.forEach(chunk => {
+                        hotContainer.innerHTML += createChunkCard(chunk, 'hot');
+                    });
+                }
+                
+                // Update cold tier
+                document.getElementById('coldCount').textContent = data.cold_tier.total_chunks;
+                document.getElementById('coldDocs').textContent = data.cold_tier.unique_docs;
+                document.getElementById('coldVersions').textContent = data.cold_tier.total_versions;
+                
+                const coldContainer = document.getElementById('coldChunks');
+                if (data.cold_tier.chunks.length === 0) {
+                    coldContainer.innerHTML = '<div class="loading">No chunks in cold tier</div>';
+                } else {
+                    coldContainer.innerHTML = '';
+                    coldContainer.className = 'chunks-grid';
+                    data.cold_tier.chunks.slice(0, 50).forEach(chunk => {
+                        coldContainer.innerHTML += createChunkCard(chunk, 'cold');
+                    });
+                    if (data.cold_tier.chunks.length > 50) {
+                        coldContainer.innerHTML += `<div class="chunk-card" style="text-align: center; color: #94a3b8;">... and ${data.cold_tier.chunks.length - 50} more chunks</div>`;
+                    }
+                }
+                
+            } catch (error) {
+                document.getElementById('hotChunks').innerHTML = `<div class="error">Error loading hot tier: ${error.message}</div>`;
+                document.getElementById('coldChunks').innerHTML = `<div class="error">Error loading cold tier: ${error.message}</div>`;
+            }
+        }
+        
+        function createChunkCard(chunk, tier) {
+            const statusClass = chunk.status === 'active' ? 'status-active' : 
+                               chunk.status === 'superseded' ? 'status-superseded' : 'status-deleted';
+            
+            const content = chunk.content ? chunk.content.substring(0, 150) + '...' : 'No content';
+            const timestamp = chunk.valid_from ? new Date(chunk.valid_from * 1000).toLocaleString() : 'N/A';
+            
+            return `
+                <div class="chunk-card">
+                    <div class="chunk-header">
+                        <div class="chunk-id">${chunk.doc_id || 'Unknown'}</div>
+                        <div class="chunk-status ${statusClass}">${chunk.status || 'active'}</div>
+                    </div>
+                    <div class="chunk-content">${content}</div>
+                    <div class="chunk-meta">
+                        📍 Position: ${chunk.position !== undefined ? chunk.position : 'N/A'} | 
+                        🕐 ${timestamp}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Load data on page load
+        loadStorageData();
+        
+        // Refresh every 5 seconds
+        setInterval(loadStorageData, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveVectorLake Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0e27; color: #fff; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        header { text-align: center; padding: 20px 0; border-bottom: 2px solid #1e2749; }
+        h1 { font-size: 2.5em; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .controls { display: flex; gap: 10px; justify-content: center; margin: 20px 0; }
+        button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; transition: all 0.3s; }
+        .btn-start { background: #10b981; color: white; }
+        .btn-stop { background: #ef4444; color: white; }
+        .btn-start:hover { background: #059669; }
+        .btn-stop:hover { background: #dc2626; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0; }
+        .metric { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; text-align: center; }
+        .metric-value { font-size: 2.5em; font-weight: bold; margin: 10px 0; }
+        .metric-label { font-size: 0.9em; opacity: 0.9; }
+        
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: #1e2749; border-radius: 12px; padding: 20px; }
+        .panel h2 { margin-bottom: 15px; font-size: 1.3em; }
+        
+        .feed { height: 300px; overflow-y: auto; background: #0a0e27; border-radius: 8px; padding: 10px; }
+        .feed-item { background: #1e2749; padding: 10px; margin: 5px 0; border-radius: 6px; border-left: 3px solid #10b981; font-size: 0.9em; }
+        .feed-item.pipeline { border-left-color: #3b82f6; }
+        .cdc-detail { font-size: 0.85em; color: #94a3b8; margin-top: 5px; }
+        .cdc-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; margin: 2px; font-size: 0.8em; }
+        .badge-new { background: #10b981; color: white; }
+        .badge-reused { background: #3b82f6; color: white; }
+        .badge-deleted { background: #ef4444; color: white; }
+        
+        .chat { display: flex; flex-direction: column; height: 500px; }
+        .messages { flex: 1; overflow-y: auto; background: #0a0e27; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+        .message { padding: 10px; margin: 5px 0; border-radius: 8px; }
+        .message.user { background: #3b82f6; text-align: right; }
+        .message.assistant { background: #1e2749; }
+        .chat-input { display: flex; gap: 10px; }
+        .chat-input { display: flex; gap: 10px; flex-direction: column; }
+        .query-row { display: flex; gap: 10px; }
+        .query-row input { flex: 1; padding: 12px; border: 2px solid #1e2749; border-radius: 8px; background: #0a0e27; color: #fff; font-size: 1em; }
+        .query-row button { background: #3b82f6; color: white; padding: 12px 20px; }
+        .query-row button:hover { background: #2563eb; }
+        .mode-toggle { display: flex; gap: 10px; align-items: center; }
+        .mode-toggle label { font-size: 0.9em; color: #94a3b8; }
+        .mode-toggle select { padding: 8px; border-radius: 6px; background: #1e2749; color: #fff; border: 1px solid #3b82f6; }
+        .mode-toggle input[type="datetime-local"] { padding: 8px; border-radius: 6px; background: #1e2749; color: #fff; border: 1px solid #3b82f6; }
+        
+        .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; }
+        .status.running { background: #10b981; }
+        .status.stopped { background: #6b7280; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0e27; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌊 LiveVectorLake</h1>
+            <p>Real-time CDC-based Temporal Knowledge Base</p>
+            <span id="streamStatus" class="status stopped">Stream: Stopped</span>
+        </header>
+        
+        <div class="controls">
+            <button class="btn-start" onclick="startStream()">▶️ Start Stream</button>
+            <button class="btn-stop" onclick="stopStream()">⏹️ Stop Stream</button>
+            <button onclick="resetEverything()" style="padding: 12px 24px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em;">🔄 Reset Everything</button>
+        </div>
+        
+        <div class="grid">
+            <div class="metric">
+                <div class="metric-label">📊 Documents Processed</div>
+                <div class="metric-value" id="totalDocs">0</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">🔥 Hot Tier (Current)</div>
+                <div class="metric-value" id="hotTier">0</div>
+                <div class="metric-label" style="font-size: 0.8em; margin-top: 5px;">Active Chunks</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">❄️ Cold Tier (History)</div>
+                <div class="metric-value" id="coldTier">0</div>
+                <div class="metric-label" style="font-size: 0.8em; margin-top: 5px;">Total Versions</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">⚡ CDC Efficiency</div>
+                <div class="metric-value" id="efficiency">0%</div>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="window.open('/storage', '_blank')" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em;">
+                📦 View Storage Details
+            </button>
+        </div>
+        
+        <div class="main-grid">
+            <div class="panel">
+                <h2>📡 Live Stream Feed</h2>
+                <div class="feed" id="streamFeed"></div>
+            </div>
+            
+            <div class="panel">
+                <h2>🔄 Pipeline Activity</h2>
+                <div class="feed" id="pipelineFeed"></div>
+            </div>
+        </div>
+        
+        <div class="panel" style="margin-top: 20px;">
+            <h2>💬 Knowledge Base Chat</h2>
+            <div class="chat">
+                <div class="messages" id="chatMessages"></div>
+                <div class="chat-input">
+                    <div class="mode-toggle">
+                        <label>Query Mode:</label>
+                        <select id="queryMode" onchange="toggleTemporalInput()">
+                            <option value="current">Current Knowledge</option>
+                            <option value="temporal">Historical (Temporal)</option>
+                        </select>
+                        <input type="datetime-local" id="temporalDate" style="display: none;" value="2024-01-15T10:00">
+                    </div>
+                    <div class="query-row">
+                        <input type="text" id="queryInput" placeholder="Ask about your knowledge base..." onkeypress="if(event.key==='Enter') sendQuery()">
+                        <button onclick="sendQuery()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        
+        ws.onopen = () => {
+            console.log('Connected to LiveVectorLake');
+            document.getElementById('streamStatus').className = 'status stopped';
+            document.getElementById('streamStatus').textContent = 'Stream: Stopped';
+            
+            // Sync with backend on connect
+            ws.send(JSON.stringify({ type: 'get_stats' }));
+        };
+        
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+        
+        ws.onclose = () => {
+            console.log('WebSocket closed');
+        };
+        
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            console.log('Received:', msg.type);
+            
+            if (msg.type === 'stream') {
+                addStreamItem(msg.data);
+            } else if (msg.type === 'pipeline') {
+                addPipelineItem(msg.data);
+            } else if (msg.type === 'stats') {
+                updateStats(msg.data);
+            } else if (msg.type === 'stream_status') {
+                updateStreamStatus(msg.data.running);
+            } else if (msg.type === 'query_response') {
+                addChatMessage('assistant', msg.data.answer);
+            } else if (msg.type === 'status') {
+                console.log('Status update:', msg.data);
+            }
+        };
+        
+        function startStream() {
+            ws.send(JSON.stringify({ type: 'start_stream' }));
+            document.getElementById('streamStatus').className = 'status running';
+            document.getElementById('streamStatus').textContent = 'Stream: Running';
+        }
+        
+        function stopStream() {
+            ws.send(JSON.stringify({ type: 'stop_stream' }));
+            document.getElementById('streamStatus').className = 'status stopped';
+            document.getElementById('streamStatus').textContent = 'Stream: Stopped';
+        }
+        
+        function addStreamItem(data) {
+            const feed = document.getElementById('streamFeed');
+            const item = document.createElement('div');
+            item.className = 'feed-item';
+            item.innerHTML = `<strong>${data.doc_id}</strong><br>${data.content.substring(0, 80)}...`;
+            feed.insertBefore(item, feed.firstChild);
+            if (feed.children.length > 10) feed.removeChild(feed.lastChild);
+        }
+        
+        function addPipelineItem(data) {
+            const feed = document.getElementById('pipelineFeed');
+            const item = document.createElement('div');
+            item.className = 'feed-item pipeline';
+            if (data.success) {
+                const total = data.chunks_added + data.chunks_unchanged + data.chunks_deleted;
+                const efficiency = total > 0 ? Math.round((data.chunks_unchanged / total) * 100) : 0;
+                
+                let badges = '';
+                if (data.chunks_added > 0) badges += `<span class="cdc-badge badge-new">+${data.chunks_added} New</span>`;
+                if (data.chunks_unchanged > 0) badges += `<span class="cdc-badge badge-reused">==${data.chunks_unchanged} Reused</span>`;
+                if (data.chunks_deleted > 0) badges += `<span class="cdc-badge badge-deleted">-${data.chunks_deleted} Deleted</span>`;
+                
+                item.innerHTML = `
+                    <strong>${data.doc_id}</strong><br>
+                    ${badges}<br>
+                    <div class="cdc-detail">✅ ${efficiency}% Efficient: ${data.chunks_unchanged} chunks reused, ${data.chunks_added} re-embedded</div>
+                `;
+            } else {
+                const errorMsg = data.error || 'Unknown error';
+                item.innerHTML = `<strong>${data.doc_id}</strong><br><span style="color: #ef4444;">❌ Error: ${errorMsg}</span>`;
+            }
+            feed.insertBefore(item, feed.firstChild);
+            if (feed.children.length > 10) feed.removeChild(feed.lastChild);
+        }
+        
+        function updateStats(data) {
+            document.getElementById('totalDocs').textContent = data.total_docs;
+            document.getElementById('hotTier').textContent = data.hot_tier;
+            document.getElementById('coldTier').textContent = data.cold_tier;
+            document.getElementById('efficiency').textContent = data.efficiency + '%';
+        }
+        
+        function toggleTemporalInput() {
+            const mode = document.getElementById('queryMode').value;
+            const dateInput = document.getElementById('temporalDate');
+            dateInput.style.display = mode === 'temporal' ? 'block' : 'none';
+        }
+        
+        function sendQuery() {
+            const input = document.getElementById('queryInput');
+            const query = input.value.trim();
+            if (!query) return;
+            
+            const mode = document.getElementById('queryMode').value;
+            const temporalDate = document.getElementById('temporalDate').value;
+            
+            let displayQuery = query;
+            if (mode === 'temporal') {
+                displayQuery = `[Historical: ${temporalDate}] ${query}`;
+            }
+            
+            addChatMessage('user', displayQuery);
+            ws.send(JSON.stringify({ 
+                type: 'query', 
+                query: query,
+                mode: mode,
+                temporal_date: temporalDate
+            }));
+            input.value = '';
+        }
+        
+        function addChatMessage(role, content) {
+            const messages = document.getElementById('chatMessages');
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            msg.textContent = content;
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        function updateStreamStatus(running) {
+            const statusEl = document.getElementById('streamStatus');
+            if (running) {
+                statusEl.className = 'status running';
+                statusEl.textContent = 'Stream: Running';
+            } else {
+                statusEl.className = 'status stopped';
+                statusEl.textContent = 'Stream: Stopped';
+            }
+        }
+        
+        function resetEverything() {
+            if (!confirm('This will delete ALL data from Milvus and Delta Lake. Are you sure?')) {
+                return;
+            }
+            
+            ws.send(JSON.stringify({ type: 'reset_all' }));
+            
+            // Clear UI
+            document.getElementById('streamFeed').innerHTML = '';
+            document.getElementById('pipelineFeed').innerHTML = '';
+            document.getElementById('chatMessages').innerHTML = '';
+            document.getElementById('totalDocs').textContent = '0';
+            document.getElementById('hotTier').textContent = '0';
+            document.getElementById('coldTier').textContent = '0';
+            document.getElementById('efficiency').textContent = '0%';
+            
+            alert('✅ System reset complete! All data cleared.');
+        }
+    </script>
+</body>
+</html>

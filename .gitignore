@@ -52,8 +52,8 @@ cdc_hash_store.json
 cdc_metadata.json
 lakehouse/
 
-# Benchmark data (generated, not committed)
-data/benchmark_corpus/
+# Benchmark data (generated)
+data/
 
 
 # Temporary files
@@ -61,7 +61,7 @@ data/benchmark_corpus/
 *.bak
 COMMIT_MESSAGE.txt
 
-# Internal project documents (not for public repo)
+# Internal project documents
 docs/PROJECT_INTERNAL.md
 docs/STYLE_GUIDE.md
 docs/sample research papers/

@@ -1,18 +1,18 @@
-# Requirements for the livevectorlake project
+# Core dependencies for LiveVectorLake prototype
+sentence-transformers==2.2.2
+pymilvus==2.3.0
+pyarrow==10.0.1
+pandas==1.5.3
+numpy==1.24.3
+redis==4.5.1
+aioredis==2.0.1
+fastapi==0.95.1
+uvicorn==0.22.0
+ollama==0.1.0
+tqdm==4.65.0
 
-# Core dependencies
-sentence-transformers>=2.2.2
-pymilvus>=2.3.0
-numpy>=1.21.0
-
-# Delta Lake (cold storage)
-polars>=1.0.0
-deltalake>=1.0.0
-pyarrow>=12.0.0
-
-# Optional dependencies
+# Dev / tooling
 click==8.1.7
 python-dotenv==1.0.0
-pytest>=6.2.4
-streamlit>=1.28.0
-requests>=2.31.0
+pytest==7.3.1
+jupyter==1.0.0
